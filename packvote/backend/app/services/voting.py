@@ -1,10 +1,137 @@
-from typing import List, Dict, Optional, Tuple
-from pryrankvote import Candidate, Ballot, instant_runoff_voting
+from typing import List, Dict, Optional, Tuple, NamedTuple
 from sqlalchemy.orm import Session
 from ..models import Vote, Recommendation, User
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Custom instant-runoff voting implementation
+class Candidate:
+    def __init__(self, id: str, name: str):
+        self.id = id
+        self.name = name
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return f"Candidate(id={self.id}, name={self.name})"
+
+class Ballot:
+    def __init__(self, ranking: List[str]):
+        self.ranking = ranking  # List of candidate IDs in order of preference
+
+    def __repr__(self):
+        return f"Ballot(ranking={self.ranking})"
+
+class ElectionRound(NamedTuple):
+    round_number: int
+    vote_counts: Dict[str, int]  # candidate_id -> votes
+    eliminated_candidate: Optional[str] = None
+    winner: Optional[str] = None
+    total_votes: int = 0
+    active_candidates: List[str] = []
+
+class VotingResult:
+    def __init__(self, winner: Optional[Candidate], rounds: List[ElectionRound]):
+        self.winner = winner
+        self.rounds = rounds
+
+def instant_runoff_voting(candidates: List[Candidate], ballots: List[Ballot]) -> Tuple[Optional[Candidate], List[ElectionRound]]:
+    """
+    Implement instant-runoff voting algorithm
+
+    Args:
+        candidates: List of candidates
+        ballots: List of ballots with ranked preferences
+
+    Returns:
+        Tuple of (winner, list of election rounds)
+    """
+    if not candidates or not ballots:
+        return None, []
+
+    candidate_ids = {c.id for c in candidates}
+    candidate_map = {c.id: c for c in candidates}
+    active_candidates = candidate_ids.copy()
+    rounds = []
+    round_num = 1
+
+    while len(active_candidates) > 1:
+        # Count votes for current round
+        vote_counts = {candidate_id: 0 for candidate_id in active_candidates}
+        valid_ballots = 0
+
+        for ballot in ballots:
+            # Find the highest-ranked active candidate on this ballot
+            for candidate_id in ballot.ranking:
+                if candidate_id in active_candidates:
+                    vote_counts[candidate_id] += 1
+                    valid_ballots += 1
+                    break
+
+        # Calculate total votes in this round
+        total_votes = sum(vote_counts.values())
+
+        # Check for majority winner
+        for candidate_id, votes in vote_counts.items():
+            if votes > total_votes / 2:
+                winner = candidate_map[candidate_id]
+                election_round = ElectionRound(
+                    round_number=round_num,
+                    vote_counts=vote_counts,
+                    winner=candidate_id,
+                    total_votes=total_votes,
+                    active_candidates=list(active_candidates)
+                )
+                rounds.append(election_round)
+                return winner, rounds
+
+        # Find candidate to eliminate (fewest votes)
+        min_votes = min(vote_counts.values())
+        candidates_to_eliminate = [
+            candidate_id for candidate_id, votes in vote_counts.items()
+            if votes == min_votes
+        ]
+
+        # In case of tie for elimination, eliminate first one
+        eliminated_candidate = candidates_to_eliminate[0]
+        active_candidates.remove(eliminated_candidate)
+
+        # Record this round
+        election_round = ElectionRound(
+            round_number=round_num,
+            vote_counts=vote_counts,
+            eliminated_candidate=eliminated_candidate,
+            total_votes=total_votes,
+            active_candidates=list(active_candidates) + [eliminated_candidate]
+        )
+        rounds.append(election_round)
+
+        round_num += 1
+
+        # Safety check to prevent infinite loop
+        if round_num > len(candidates):
+            break
+
+    # If we get here, either we have a winner or all remaining candidates are tied
+    if active_candidates:
+        winner = candidate_map[active_candidates[0]]
+    else:
+        winner = None
+
+    # Record final round if needed
+    if rounds and rounds[-1].winner is None:
+        final_round = ElectionRound(
+            round_number=round_num,
+            vote_counts=rounds[-1].vote_counts,
+            winner=active_candidates[0] if active_candidates else None,
+            total_votes=rounds[-1].total_votes,
+            active_candidates=active_candidates
+        )
+        rounds.append(final_round)
+
+    return winner, rounds
 
 
 class VotingService:
