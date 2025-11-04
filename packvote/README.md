@@ -8,7 +8,7 @@ PackVote is an innovative platform that makes group trip planning simple and fai
 - **Trip Creation**: Create and manage group trips with detailed planning
 - **AI Recommendations**: Generate personalized destination suggestions using Google Gemini AI
 - **Preference Collection**: Gather structured preferences from all trip participants
-- **Ranked-Choice Voting**: Fair decision-making using instant-runoff voting algorithm
+- **Ranked-Choice Voting**: Fair decision-making using custom instant-runoff voting algorithm
 - **Telegram Integration**: Collect preferences and send notifications via Telegram bot
 
 ### Free-Tier Architecture
