@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from sqlalchemy import or_
 
-from ..models import User, Participant
+from ..models import User, Participant, Trip
 from ..utils.security import (
     verify_password,
     get_password_hash,
