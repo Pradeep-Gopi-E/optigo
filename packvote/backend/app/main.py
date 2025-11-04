@@ -54,6 +54,9 @@ async def global_exception_handler(request, exc):
 # Include routers
 app.include_router(auth_router, prefix="/api")
 app.include_router(trips_router, prefix="/api")
+app.include_router(votes_router, prefix="/api")
+app.include_router(recommendations_router, prefix="/api")
+app.include_router(telegram_router, prefix="/api")
 
 
 # Health check endpoint
