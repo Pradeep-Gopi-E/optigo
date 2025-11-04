@@ -125,7 +125,7 @@ def instant_runoff_voting(candidates: List[Candidate], ballots: List[Ballot]) ->
         final_round = ElectionRound(
             round_number=round_num,
             vote_counts=rounds[-1].vote_counts,
-            winner=active_candidates[0] if active_candidates else None,
+            winner=next(iter(active_candidates)) if active_candidates else None,
             total_votes=rounds[-1].total_votes,
             active_candidates=active_candidates
         )
