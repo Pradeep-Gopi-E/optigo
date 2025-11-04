@@ -1,0 +1,358 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from typing import List
+import uuid
+
+from ..schemas.recommendation import RecommendationCreate, RecommendationResponse, GenerateRecommendationsResponse
+from ..services.auth import AuthService
+from ..services.ai_service import AIService
+from ..models import Recommendation, Trip
+from ..utils.database import get_db
+from ..api.auth import get_current_user
+import logging
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/trips/{trip_id}/recommendations", tags=["recommendations"])
+
+
+def validate_access(trip_id: str, current_user, db: Session) -> bool:
+    """Validate user has access to trip recommendations"""
+    try:
+        auth_service = AuthService(db)
+        return auth_service.check_trip_access(current_user, trip_id, "member")
+    except Exception:
+        return False
+
+
+@router.get("/", response_model=List[RecommendationResponse])
+async def get_trip_recommendations(
+    trip_id: str,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get all recommendations for a trip"""
+    try:
+        # Validate UUID
+        try:
+            uuid.UUID(trip_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Trip not found"
+            )
+
+        # Check access
+        if not validate_access(trip_id, current_user, db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied to this trip"
+            )
+
+        # Get recommendations
+        recommendations = db.query(Recommendation).filter(
+            Recommendation.trip_id == trip_id
+        ).order_by(Recommendation.created_at.desc()).all()
+
+        recommendation_responses = []
+        for rec in recommendations:
+            recommendation_response = RecommendationResponse(
+                id=str(rec.id),
+                trip_id=str(rec.trip_id),
+                destination_name=rec.destination_name,
+                description=rec.description,
+                estimated_cost=float(rec.estimated_cost) if rec.estimated_cost else None,
+                activities=rec.activities,
+                accommodation_options=rec.accommodation_options,
+                transportation_options=rec.transportation_options,
+                ai_generated=rec.ai_generated,
+                created_at=rec.created_at
+            )
+            recommendation_responses.append(recommendation_response)
+
+        return recommendation_responses
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting recommendations: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve recommendations"
+        )
+
+
+@router.post("/generate", response_model=GenerateRecommendationsResponse)
+async def generate_ai_recommendations(
+    trip_id: str,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Generate AI-powered recommendations for the trip"""
+    try:
+        # Validate UUID
+        try:
+            uuid.UUID(trip_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Trip not found"
+            )
+
+        # Check if user is trip owner or has elevated permissions
+        trip = db.query(Trip).filter(Trip.id == trip_id).first()
+        if not trip:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Trip not found"
+            )
+
+        # Only trip owners can generate recommendations
+        if str(trip.created_by) != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only trip owners can generate recommendations"
+            )
+
+        # Check access
+        if not validate_access(trip_id, current_user, db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied to this trip"
+            )
+
+        # Generate AI recommendations
+        ai_service = AIService(db)
+        created_recommendations = ai_service.generate_recommendations(trip_id)
+
+        ai_service_available = True  # Track if AI was actually used
+        if not created_recommendations:
+            logger.warning("No recommendations were generated")
+            return GenerateRecommendationsResponse(
+                message="No recommendations could be generated. Please check trip preferences.",
+                recommendations_generated=0,
+                ai_service_available=ai_service_available
+            )
+
+        return GenerateRecommendationsResponse(
+            message=f"Successfully generated {len(created_recommendations)} recommendations",
+            recommendations_generated=len(created_recommendations),
+            ai_service_available=ai_service_available
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating recommendations: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate recommendations"
+        )
+
+
+@router.post("/", response_model=RecommendationResponse, status_code=status.HTTP_201_CREATED)
+async def create_custom_recommendation(
+    trip_id: str,
+    recommendation_data: RecommendationCreate,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create a custom recommendation (not AI-generated)"""
+    try:
+        # Validate UUID
+        try:
+            uuid.UUID(trip_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Trip not found"
+            )
+
+        # Check if user is trip owner or has elevated permissions
+        trip = db.query(Trip).filter(Trip.id == trip_id).first()
+        if not trip:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Trip not found"
+            )
+
+        # Only trip owners can create recommendations
+        if str(trip.created_by) != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only trip owners can create recommendations"
+            )
+
+        # Check access
+        if not validate_access(trip_id, current_user, db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied to this trip"
+            )
+
+        # Create recommendation
+        new_recommendation = Recommendation(
+            trip_id=trip_id,
+            destination_name=recommendation_data.destination_name,
+            description=recommendation_data.description,
+            estimated_cost=recommendation_data.estimated_cost,
+            activities=recommendation_data.activities,
+            accommodation_options=recommendation_data.accommodation_options,
+            transportation_options=recommendation_data.transportation_options,
+            ai_generated=recommendation_data.ai_generated
+        )
+
+        db.add(new_recommendation)
+        db.commit()
+        db.refresh(new_recommendation)
+
+        recommendation_response = RecommendationResponse(
+            id=str(new_recommendation.id),
+            trip_id=str(new_recommendation.trip_id),
+            destination_name=new_recommendation.destination_name,
+            description=new_recommendation.description,
+            estimated_cost=float(new_recommendation.estimated_cost) if new_recommendation.estimated_cost else None,
+            activities=new_recommendation.activities,
+            accommodation_options=new_recommendation.accommodation_options,
+            transportation_options=new_recommendation.transportation_options,
+            ai_generated=new_recommendation.ai_generated,
+            created_at=new_recommendation.created_at
+        )
+
+        return recommendation_response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating recommendation: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create recommendation"
+        )
+
+
+@router.get("/{recommendation_id}", response_model=RecommendationResponse)
+async def get_recommendation(
+    trip_id: str,
+    recommendation_id: str,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get specific recommendation details"""
+    try:
+        # Validate UUIDs
+        try:
+            uuid.UUID(trip_id)
+            uuid.UUID(recommendation_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Recommendation not found"
+            )
+
+        # Check access
+        if not validate_access(trip_id, current_user, db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied to this trip"
+            )
+
+        # Get recommendation
+        recommendation = db.query(Recommendation).filter(
+            Recommendation.id == recommendation_id,
+            Recommendation.trip_id == trip_id
+        ).first()
+
+        if not recommendation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Recommendation not found"
+            )
+
+        recommendation_response = RecommendationResponse(
+            id=str(recommendation.id),
+            trip_id=str(recommendation.trip_id),
+            destination_name=recommendation.destination_name,
+            description=recommendation.description,
+            estimated_cost=float(recommendation.estimated_cost) if recommendation.estimated_cost else None,
+            activities=recommendation.activities,
+            accommodation_options=recommendation.accommodation_options,
+            transportation_options=recommendation.transportation_options,
+            ai_generated=recommendation.ai_generated,
+            created_at=recommendation.created_at
+        )
+
+        return recommendation_response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting recommendation: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve recommendation"
+        )
+
+
+@router.delete("/{recommendation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_recommendation(
+    trip_id: str,
+    recommendation_id: str,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a recommendation"""
+    try:
+        # Validate UUIDs
+        try:
+            uuid.UUID(trip_id)
+            uuid.UUID(recommendation_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Recommendation not found"
+            )
+
+        # Check if user is trip owner
+        trip = db.query(Trip).filter(Trip.id == trip_id).first()
+        if not trip:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Trip not found"
+            )
+
+        # Only trip owners can delete recommendations
+        if str(trip.created_by) != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only trip owners can delete recommendations"
+            )
+
+        # Get recommendation
+        recommendation = db.query(Recommendation).filter(
+            Recommendation.id == recommendation_id,
+            Recommendation.trip_id == trip_id
+        ).first()
+
+        if not recommendation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Recommendation not found"
+            )
+
+        # Delete recommendation
+        db.delete(recommendation)
+        db.commit()
+
+        return
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting recommendation: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete recommendation"
+        )
