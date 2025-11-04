@@ -116,7 +116,7 @@ def instant_runoff_voting(candidates: List[Candidate], ballots: List[Ballot]) ->
 
     # If we get here, either we have a winner or all remaining candidates are tied
     if active_candidates:
-        winner = candidate_map[active_candidates[0]]
+        winner = candidate_map[next(iter(active_candidates))]
     else:
         winner = None
 
