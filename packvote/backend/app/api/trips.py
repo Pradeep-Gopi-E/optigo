@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from datetime import datetime
 import uuid
 
 from ..schemas.trip import TripCreate, TripUpdate, TripResponse, TripDetailResponse, InviteRequest
