@@ -6,7 +6,7 @@ import sys
 
 from .config import settings
 from .utils.database import engine, Base
-from .api import auth_router, trips_router, votes_router, recommendations_router, telegram_router
+from .api import auth_router, trips_router, votes_router, recommendations_router, telegram_router, preferences_router
 
 # Configure logging
 logging.basicConfig(
