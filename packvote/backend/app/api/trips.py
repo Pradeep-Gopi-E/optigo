@@ -112,8 +112,8 @@ async def create_trip(
         owner_participant = Participant(
             trip_id=str(new_trip.id),
             user_id=str(current_user.id),
-            role=ParticipantRole.owner,
-            status=ParticipantStatus.joined,
+            role=ParticipantRoleModel.owner,
+            status=ParticipantStatusModel.joined,
             joined_at=datetime.utcnow()
         )
         db.add(owner_participant)
