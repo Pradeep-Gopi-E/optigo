@@ -7,7 +7,7 @@ import uuid
 from ..schemas.trip import TripCreate, TripUpdate, TripResponse, TripDetailResponse, InviteRequest
 from ..schemas.participant import ParticipantResponse, ParticipantRole, ParticipantStatus
 from ..services.auth import AuthService
-from ..models import Trip, Participant, User
+from ..models import Trip, Participant, User, ParticipantRole as ParticipantRoleModel, ParticipantStatus as ParticipantStatusModel
 from ..utils.database import get_db
 from ..api.auth import get_current_user
 import logging
