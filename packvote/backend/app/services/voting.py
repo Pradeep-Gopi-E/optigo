@@ -245,29 +245,19 @@ class VotingService:
 
         return candidates
 
-    def _format_rounds(self, rounds: List) -> List[Dict]:
+    def _format_rounds(self, rounds: List[ElectionRound]) -> List[Dict]:
         """Format voting rounds for JSON response"""
         formatted_rounds = []
 
-        for round_num, round_data in enumerate(rounds, 1):
+        for round_data in rounds:
             formatted_round = {
-                "round": round_num,
-                "vote_counts": {},
-                "eliminated": None,
-                "winner": None
+                "round": round_data.round_number,
+                "vote_counts": round_data.vote_counts,
+                "eliminated": round_data.eliminated_candidate,
+                "winner": round_data.winner,
+                "total_votes": round_data.total_votes,
+                "active_candidates": round_data.active_candidates
             }
-
-            # Add vote counts for each candidate
-            for candidate_id, vote_count in round_data.get("vote_counts", {}).items():
-                formatted_round["vote_counts"][candidate_id] = vote_count
-
-            # Add eliminated candidate if any
-            if round_data.get("eliminated"):
-                formatted_round["eliminated"] = round_data["eliminated"]
-
-            # Add winner if final round
-            if round_data.get("winner"):
-                formatted_round["winner"] = round_data["winner"]
 
             formatted_rounds.append(formatted_round)
 
