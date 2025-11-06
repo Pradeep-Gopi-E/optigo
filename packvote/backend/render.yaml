@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: packvote-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app/main.py
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: GOOGLE_AI_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_URL
+        value: https://packvote-api.onrender.com/api/telegram/webhook
+        sync: false
+      - key: APP_NAME
+        value: PackVote
+        sync: false
+      - key: DEBUG
+        value: false
+        sync: false
+      - key: LOG_LEVEL
+        value: INFO
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://packvote-frontend.vercel.app,https://localhost:3000
+        sync: false

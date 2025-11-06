@@ -1,0 +1,18 @@
+fastapi==0.115.13       # latest stable release of FastAPI :contentReference[oaicite:0]{index=0}
+uvicorn[standard]==0.38.0 # latest stable Uvicorn including standard extras :contentReference[oaicite:1]{index=1}
+sqlalchemy==2.0.44       # latest stable SQLAlchemy 2.0 series :contentReference[oaicite:2]{index=2}
+supabase==2.23.2         # appears current (no newer version found) 
+pydantic==2.12.0         # latest stable Pydantic v2 series
+pydantic-settings==2.1.0 # appears current (no newer version found)
+python-jose[cryptography]==3.5.0  # latest based on available information
+passlib[bcrypt]==1.7.4   # appears current
+python-multipart==0.0.20 # latest stable for python-multipart :contentReference[oaicite:3]{index=3}
+google-generativeai==0.8.5 # latest stable for this library :contentReference[oaicite:4]{index=4}
+python-telegram-bot==22.5 # latest identified stable version :contentReference[oaicite:5]{index=5}
+requests==2.32.5         # latest stable version :contentReference[oaicite:6]{index=6}
+python-dotenv==1.2.1      # latest stable version :contentReference[oaicite:7]{index=7}
+alembic==1.13.0          # you had 1.13.0; latest visible stable release is ~1.16.x though check compatibility :contentReference[oaicite:8]{index=8}
+psycopg2-binary==2.9.10   # latest stable release in this package set :contentReference[oaicite:9]{index=9}
+httpx==0.28.1            # latest stable visible for httpx :contentReference[oaicite:10]{index=10}
+pytest==7.4.3            # appears current (no newer version found)
+pytest-asyncio==0.21.1    # appears current (no newer version found)
