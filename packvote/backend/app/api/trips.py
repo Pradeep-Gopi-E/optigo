@@ -7,7 +7,10 @@ import uuid
 from ..schemas.trip import TripCreate, TripUpdate, TripResponse, TripDetailResponse, InviteRequest
 from ..schemas.participant import ParticipantResponse, ParticipantRole, ParticipantStatus
 from ..services.auth import AuthService
-from ..models import Trip, Participant, User, ParticipantRole as ParticipantRoleModel, ParticipantStatus as ParticipantStatusModel
+# This line is changed:
+from ..models import Trip, Participant, User
+# This line is added to import enums from their specific file:
+from ..models.participant import ParticipantRole as ParticipantRoleModel, ParticipantStatus as ParticipantStatusModel
 from ..utils.database import get_db
 from ..api.auth import get_current_user
 import logging
@@ -417,6 +420,6 @@ async def get_trip_participants(
     except Exception as e:
         logger.error(f"Error getting trip participants: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_de=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve trip participants"
         )

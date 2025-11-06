@@ -3,9 +3,10 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 import os
+from ..config import settings
 
 # Database configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/packvote")
+DATABASE_URL = settings.DATABASE_URL
 
 # Create engine
 engine = create_engine(

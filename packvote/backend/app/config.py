@@ -1,7 +1,5 @@
 from pydantic_settings import BaseSettings
 from typing import Optional
-import os
-
 
 class Settings(BaseSettings):
     # App settings
@@ -11,13 +9,13 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     # Database
-    DATABASE_URL: str = "postgresql://user:pass@localhost:5432/packvote"
+    DATABASE_URL: str
     SUPABASE_URL: Optional[str] = None
     SUPABASE_ANON_KEY: Optional[str] = None
     SUPABASE_SERVICE_KEY: Optional[str] = None
 
     # Authentication
-    JWT_SECRET: str = "your-jwt-secret-key-change-in-production"
+    JWT_SECRET: Optional[str] = None
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 30
 
@@ -40,5 +38,4 @@ class Settings(BaseSettings):
         case_sensitive = True
 
 
-# Create settings instance
 settings = Settings()
