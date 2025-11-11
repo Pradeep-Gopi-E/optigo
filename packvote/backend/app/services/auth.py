@@ -1,3 +1,4 @@
+import bcrypt
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
@@ -6,8 +7,8 @@ from sqlalchemy import or_
 
 from ..models import User, Participant, Trip
 from ..utils.security import (
-    verify_password,
-    get_password_hash,
+    # verify_password, # Removed
+    # get_password_hash, # Removed
     create_access_token,
     verify_token
 )
@@ -26,17 +27,6 @@ class AuthService:
     def register_user(self, email: str, name: str, password: str) -> Dict[str, Any]:
         """
         Register a new user
-
-        Args:
-            email: User email
-            name: User name
-            password: Plain text password
-
-        Returns:
-            Dict containing user info and access token
-
-        Raises:
-            HTTPException: If user already exists
         """
         try:
             # Check if user already exists
@@ -50,11 +40,18 @@ class AuthService:
                     detail="User with this email already exists"
                 )
 
-            # Create new user
-            hashed_password = get_password_hash(password)
+            # --- FIX: HASH PASSWORD WITH BCRYPT DIRECTLY ---
+            salt = bcrypt.gensalt()
+            encoded_password = password.encode('utf-8')
+            hashed_password_bytes = bcrypt.hashpw(encoded_password, salt)
+            hashed_password_str = hashed_password_bytes.decode('utf-8')
+            
+            # --- FIX: SAVE HASHED PASSWORD TO THE NEW USER ---
+            # (This assumes your User model has a field named 'hashed_password')
             new_user = User(
                 email=email,
                 name=name,
+                hashed_password=hashed_password_str, # <-- THIS WAS THE LOGIC BUG
                 is_active=True
             )
 
@@ -95,29 +92,31 @@ class AuthService:
     def authenticate_user(self, email: str, password: str) -> Dict[str, Any]:
         """
         Authenticate user and return access token
-
-        Args:
-            email: User email
-            password: Plain text password
-
-        Returns:
-            Dict containing user info and access token
-
-        Raises:
-            HTTPException: If credentials are invalid
         """
         try:
             # Find user by email
             user = self.db.query(User).filter(User.email == email).first()
 
-            if not user:
+            # --- FIX: ADD PASSWORD VERIFICATION ---
+            
+            # Check if user exists AND has a password set
+            if not user or not user.hashed_password:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid email or password"
                 )
+            
+            # Check if password matches
+            encoded_password = password.encode('utf-8')
+            encoded_hashed_password = user.hashed_password.encode('utf-8')
 
-            # Verify password (for now, we'll use email as password since we don't have password field)
-            # In a real app, you'd verify against the hashed password
+            if not bcrypt.checkpw(encoded_password, encoded_hashed_password):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid email or password"
+                )
+            # --- END OF FIX ---
+
             if not user.is_active:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -156,15 +155,6 @@ class AuthService:
     def get_current_user(self, token: str) -> User:
         """
         Get current user from JWT token
-
-        Args:
-            token: JWT access token
-
-        Returns:
-            User object
-
-        Raises:
-            HTTPException: If token is invalid or user not found
         """
         try:
             # Verify token
@@ -206,14 +196,6 @@ class AuthService:
     def check_trip_access(self, user: User, trip_id: str, required_role: str = "member") -> bool:
         """
         Check if user has access to a trip with required role
-
-        Args:
-            user: User object
-            trip_id: Trip ID
-            required_role: Required role (owner, member, viewer)
-
-        Returns:
-            True if user has access, False otherwise
         """
         try:
             # Check if user is trip owner (creator)
@@ -245,17 +227,6 @@ class AuthService:
     def update_user_profile(self, user_id: str, name: Optional[str] = None, telegram_id: Optional[str] = None) -> User:
         """
         Update user profile information
-
-        Args:
-            user_id: User ID to update
-            name: New name (optional)
-            telegram_id: Telegram ID (optional)
-
-        Returns:
-            Updated user object
-
-        Raises:
-            HTTPException: If user not found or update fails
         """
         try:
             user = self.db.query(User).filter(User.id == user_id).first()

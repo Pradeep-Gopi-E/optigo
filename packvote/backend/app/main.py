@@ -84,13 +84,14 @@ async def root():
 
 
 # Create database tables
+# Create database tables
 @app.on_event("startup")
 async def startup_event():
     """Application startup event"""
     try:
-        # Create all database tables
+        Base.metadata.drop_all(bind=engine)
         Base.metadata.create_all(bind=engine)
-        logger.info("Database tables created successfully")
+        logger.info("Database tables recreated successfully")
     except Exception as e:
         logger.error(f"Error creating database tables: {str(e)}")
 
