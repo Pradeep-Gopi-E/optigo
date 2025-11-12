@@ -1,0 +1,332 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { motion } from 'framer-motion'
+import { useForm } from 'react-hook-form'
+import { ArrowLeft, Calendar, MapPin, DollarSign, Users, Save, Brain } from 'lucide-react'
+import { tripsAPI } from '@/lib/api'
+import Link from 'next/link'
+import DatePicker from 'react-datepicker'
+import 'react-datepicker/dist/react-datepicker.css'
+import toast from 'react-hot-toast'
+
+interface TripFormData {
+  title: string
+  description: string
+  destination: string
+  start_date: Date | null
+  end_date: Date | null
+  budget_min: number
+  budget_max: number
+}
+
+export default function CreateTripPage() {
+  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false)
+  const [startDate, setStartDate] = useState<Date | null>(null)
+  const [endDate, setEndDate] = useState<Date | null>(null)
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+    watch,
+  } = useForm<TripFormData>()
+
+  const budgetMin = watch('budget_min')
+  const budgetMax = watch('budget_max')
+
+  useEffect(() => {
+    if (startDate) {
+      setValue('start_date', startDate)
+    }
+    if (endDate) {
+      setValue('end_date', endDate)
+    }
+  }, [startDate, endDate, setValue])
+
+  const onSubmit = async (data: TripFormData) => {
+    setIsLoading(true)
+    try {
+      const tripData = {
+        ...data,
+        start_date: startDate?.toISOString(),
+        end_date: endDate?.toISOString(),
+        budget_min: data.budget_min || null,
+        budget_max: data.budget_max || null,
+      }
+
+      const response = await tripsAPI.createTrip(tripData)
+      toast.success('Trip created successfully!')
+      router.push(`/trips/${response.id}`)
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || 'Failed to create trip')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDateChange = (dates: [Date | null, Date | null]) => {
+    const [start, end] = dates
+    setStartDate(start)
+    setEndDate(end)
+  }
+
+  const isEndDateInvalid = () => {
+    return startDate && endDate && endDate <= startDate
+  }
+
+  const isBudgetInvalid = () => {
+    return budgetMin && budgetMax && budgetMin >= budgetMax
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center">
+              <Link href="/dashboard" className="mr-4">
+                <ArrowLeft className="w-5 h-5 text-gray-600 hover:text-gray-900" />
+              </Link>
+              <h1 className="text-xl font-semibold text-gray-900">Create New Trip</h1>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Form Content */}
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="bg-white rounded-xl shadow-sm p-8"
+        >
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+            {/* Basic Information */}
+            <div>
+              <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <MapPin className="w-5 h-5 mr-2 text-primary" />
+                Basic Information
+              </h2>
+              <div className="grid grid-cols-1 gap-6">
+                {/* Title */}
+                <div>
+                  <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+                    Trip Title *
+                  </label>
+                  <input
+                    {...register('title', {
+                      required: 'Trip title is required',
+                      minLength: {
+                        value: 3,
+                        message: 'Title must be at least 3 characters',
+                      },
+                    })}
+                    type="text"
+                    id="title"
+                    className="input w-full"
+                    placeholder="Summer Vacation 2024"
+                  />
+                  {errors.title && (
+                    <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
+                  )}
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    {...register('description')}
+                    id="description"
+                    rows={4}
+                    className="input w-full resize-none"
+                    placeholder="Describe your trip and what makes it special..."
+                  />
+                </div>
+
+                {/* Destination */}
+                <div>
+                  <label htmlFor="destination" className="block text-sm font-medium text-gray-700 mb-2">
+                    Destination
+                  </label>
+                  <input
+                    {...register('destination')}
+                    type="text"
+                    id="destination"
+                    className="input w-full"
+                    placeholder="Paris, France"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Dates */}
+            <div>
+              <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <Calendar className="w-5 h-5 mr-2 text-primary" />
+                Travel Dates
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Date Range
+                  </label>
+                  <DatePicker
+                    selected={startDate}
+                    onChange={handleDateChange}
+                    startDate={startDate}
+                    endDate={endDate}
+                    selectsRange
+                    inline
+                    className="w-full"
+                    placeholderText="Select travel dates"
+                  />
+                  {startDate && endDate && (
+                    <p className="mt-2 text-sm text-gray-600">
+                      {Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))} days
+                    </p>
+                  )}
+                  {isEndDateInvalid() && (
+                    <p className="mt-1 text-sm text-red-600">End date must be after start date</p>
+                  )}
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Start Date
+                    </label>
+                    <div className="input w-full bg-gray-50">
+                      {startDate ? startDate.toLocaleDateString() : 'Not selected'}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      End Date
+                    </label>
+                    <div className="input w-full bg-gray-50">
+                      {endDate ? endDate.toLocaleDateString() : 'Not selected'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Budget */}
+            <div>
+              <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <DollarSign className="w-5 h-5 mr-2 text-primary" />
+                Budget (Optional)
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="budget_min" className="block text-sm font-medium text-gray-700 mb-2">
+                    Minimum Budget per Person
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <DollarSign className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      {...register('budget_min', {
+                        min: { value: 0, message: 'Budget must be positive' },
+                        valueAsNumber: true,
+                      })}
+                      type="number"
+                      id="budget_min"
+                      className="input pl-10 w-full"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="budget_max" className="block text-sm font-medium text-gray-700 mb-2">
+                    Maximum Budget per Person
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <DollarSign className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      {...register('budget_max', {
+                        min: { value: 0, message: 'Budget must be positive' },
+                        valueAsNumber: true,
+                      })}
+                      type="number"
+                      id="budget_max"
+                      className="input pl-10 w-full"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              </div>
+              {isBudgetInvalid() && (
+                <p className="mt-1 text-sm text-red-600">Maximum budget must be greater than minimum budget</p>
+              )}
+            </div>
+
+            {/* AI Helper */}
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200">
+              <div className="flex items-start">
+                <Brain className="w-6 h-6 text-purple-600 mt-1 mr-3 flex-shrink-0" />
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-2">AI-Powered Planning</h3>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Once your trip is created, our AI will help generate personalized destination recommendations based on your group's preferences!
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      Smart Recommendations
+                    </span>
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      Group Preferences
+                    </span>
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      Fair Voting
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-4 pt-6 border-t">
+              <Link
+                href="/dashboard"
+                className="btn btn-outline"
+              >
+                Cancel
+              </Link>
+              <button
+                type="submit"
+                disabled={isLoading || isEndDateInvalid() || isBudgetInvalid()}
+                className="btn btn-primary flex items-center disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <span className="inline-flex items-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Creating Trip...
+                  </span>
+                ) : (
+                  <span className="flex items-center">
+                    <Save className="w-4 h-4 mr-2" />
+                    Create Trip
+                  </span>
+                )}
+              </button>
+            </div>
+          </form>
+        </motion.div>
+      </main>
+    </div>
+  )
+}
