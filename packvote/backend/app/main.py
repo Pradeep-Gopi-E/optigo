@@ -89,7 +89,7 @@ async def root():
 async def startup_event():
     """Application startup event"""
     try:
-        Base.metadata.drop_all(bind=engine)
+        #Base.metadata.drop_all(bind=engine)
         Base.metadata.create_all(bind=engine)
         logger.info("Database tables recreated successfully")
     except Exception as e:
