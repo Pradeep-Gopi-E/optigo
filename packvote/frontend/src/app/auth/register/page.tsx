@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { Eye, EyeOff, Mail, Lock, ArrowRight, Users, User } from 'lucide-react'
-import { authAPI } from '@/lib/api'
+import { authAPI } from '@/libr/api'
 import { RegisterData } from '@/types/auth' // Make sure this type is defined!
 import toast from 'react-hot-toast'
 

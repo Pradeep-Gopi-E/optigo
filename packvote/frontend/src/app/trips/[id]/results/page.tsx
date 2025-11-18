@@ -15,8 +15,8 @@ import {
   XCircle,
   DollarSign // 1. Added DollarSign
 } from 'lucide-react'
-import { tripsAPI } from '@/lib/api'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { tripsAPI } from '@/libr/api'
+import { formatCurrency, formatDate } from '@/libr/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'

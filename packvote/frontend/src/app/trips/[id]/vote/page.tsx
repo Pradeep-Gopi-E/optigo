@@ -19,8 +19,8 @@ import {
   Clock,
   MessageCircle
 } from 'lucide-react'
-import { tripsAPI, recommendationsAPI, telegramAPI } from '@/lib/api'
-import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils'
+import { tripsAPI, recommendationsAPI, telegramAPI } from '@/libr/api'
+import { formatCurrency, formatDate, getStatusColor } from '@/libr/utils'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 

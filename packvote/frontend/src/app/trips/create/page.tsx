@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { ArrowLeft, Calendar, MapPin, DollarSign, Save, Brain } from 'lucide-react'
-import { tripsAPI } from '@/lib/api'
+import { tripsAPI } from '@/libr/api'
 import toast from 'react-hot-toast'
 
 interface TripFormData {

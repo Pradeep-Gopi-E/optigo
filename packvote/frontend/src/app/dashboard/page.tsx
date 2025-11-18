@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Plus, Users, Calendar, Vote, Brain, MapPin, TrendingUp, LogOut, Menu } from 'lucide-react'
-import { tripsAPI } from '@/lib/api'
-import { formatCurrency, formatDate, generateInitials } from '@/lib/utils'
+import { tripsAPI } from '@/libr/api'
+import { formatCurrency, formatDate, generateInitials } from '@/libr/utils'
 import Link from 'next/link'
 
 interface Trip {

@@ -16,8 +16,8 @@ import {
   Star,
   Timer
 } from 'lucide-react'
-import { tripsAPI } from '@/lib/api'
-import { formatDate } from '@/lib/utils'
+import { tripsAPI } from '@/libr/api'
+import { formatDate } from '@/libr/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Navigation } from '@/components/layout/navigation'
