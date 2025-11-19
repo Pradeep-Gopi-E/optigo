@@ -14,7 +14,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/
 lib64/
 parts/
 sdist/
@@ -209,3 +209,5 @@ __marimo__/
 .next/
 node_modules/
 .vscode/
+pvf/
+pvb/

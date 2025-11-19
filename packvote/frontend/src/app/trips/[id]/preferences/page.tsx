@@ -16,8 +16,8 @@ import {
   Star,
   Timer
 } from 'lucide-react'
-import { tripsAPI } from '@/libr/api'
-import { formatDate } from '@/libr/utils'
+import { tripsAPI, preferencesAPI } from '@/lib/api'
+import { formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Navigation } from '@/components/layout/navigation'
@@ -31,7 +31,7 @@ interface TripData {
   end_date?: string
   budget_min?: number
   budget_max?: number
-  participant_count: number
+  participant_count?: number
 }
 
 interface PreferenceData {
@@ -118,7 +118,7 @@ export default function PreferencesPage() {
   const handleSubmit = async () => {
     setIsSaving(true)
     try {
-      await tripsAPI.createPreference(tripId as string, {
+      await preferencesAPI.createPreference(tripId as string, {
         preference_type: 'detailed',
         preference_data: preferences
       })
@@ -206,26 +206,23 @@ export default function PreferencesPage() {
                     key={index}
                     className="flex items-center"
                   >
-                    <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-colors ${
-                      isActive
-                        ? 'border-primary bg-primary text-white'
-                        : isCompleted
+                    <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-colors ${isActive
+                      ? 'border-primary bg-primary text-white'
+                      : isCompleted
                         ? 'border-green-500 bg-green-500 text-white'
                         : 'border-gray-300 text-gray-400'
-                    }`}>
+                      }`}>
                       <Icon className="w-5 h-5" />
                     </div>
                     <div className="ml-3">
-                      <p className={`text-sm font-medium ${
-                        isActive ? 'text-primary' : isCompleted ? 'text-green-600' : 'text-gray-500'
-                      }`}>
+                      <p className={`text-sm font-medium ${isActive ? 'text-primary' : isCompleted ? 'text-green-600' : 'text-gray-500'
+                        }`}>
                         {step.title}
                       </p>
                     </div>
                     {index < steps.length - 1 && (
-                      <div className={`mx-8 h-0.5 w-16 transition-colors ${
-                        isCompleted ? 'bg-green-500' : 'bg-gray-300'
-                      }`}></div>
+                      <div className={`mx-8 h-0.5 w-16 transition-colors ${isCompleted ? 'bg-green-500' : 'bg-gray-300'
+                        }`}></div>
                     )}
                   </div>
                 )

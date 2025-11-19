@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { Eye, EyeOff, Mail, Lock, ArrowRight, Users } from 'lucide-react'
-import { authAPI } from '@/libr/api'
+import { authAPI } from '@/lib/api'
 import { LoginData } from '@/types/auth'
 import toast from 'react-hot-toast'
 
@@ -24,7 +24,7 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginData) => {
     setIsLoading(true)
     try {
-      const response = await authAPI.login(data.email, data.password)
+      const response = await authAPI.login({ email: data.email, password: data.password })
 
       // Store auth data
       localStorage.setItem('access_token', response.access_token)

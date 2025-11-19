@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { Eye, EyeOff, Mail, Lock, ArrowRight, Users, User } from 'lucide-react'
-import { authAPI } from '@/libr/api'
+import { authAPI } from '@/lib/api'
 import { RegisterData } from '@/types/auth' // Make sure this type is defined!
 import toast from 'react-hot-toast'
 
@@ -31,7 +31,7 @@ export default function RegisterPage() {
     setIsLoading(true)
     try {
       // 1. Call the register API
-      const response = await authAPI.register(data.name, data.email, data.password)
+      const response = await authAPI.register({ name: data.name, email: data.email, password: data.password })
 
       // 2. Store auth data (just like the login page)
       localStorage.setItem('access_token', response.access_token)
@@ -40,7 +40,7 @@ export default function RegisterPage() {
       // 3. Show success and redirect to the main app
       toast.success(`Welcome, ${response.user.name}!`)
       router.push('/dashboard') // Redirect to the main app
-      
+
     } catch (error: any) {
       toast.error(error.response?.data?.detail || 'Registration failed')
     } finally {
@@ -73,7 +73,7 @@ export default function RegisterPage() {
       {/* Register Form */}
       <div className="bg-white rounded-2xl shadow-xl p-8">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          
+
           {/* Name Field */}
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
@@ -97,7 +97,7 @@ export default function RegisterPage() {
               <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
             )}
           </div>
-          
+
           {/* Email Field */}
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">

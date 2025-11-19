@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { ArrowLeft, Calendar, MapPin, DollarSign, Save, Brain } from 'lucide-react'
-import { tripsAPI } from '@/libr/api'
+import { tripsAPI } from '@/lib/api'
 import toast from 'react-hot-toast'
 
 interface TripFormData {
@@ -101,7 +101,7 @@ export default function CreateTripPage() {
           className="bg-white rounded-xl shadow-sm p-8"
         >
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-            
+
             {/* Basic Information */}
             <div>
               <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">

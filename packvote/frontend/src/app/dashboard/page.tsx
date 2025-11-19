@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Plus, Users, Calendar, Vote, Brain, MapPin, TrendingUp, LogOut, Menu } from 'lucide-react'
-import { tripsAPI } from '@/libr/api'
-import { formatCurrency, formatDate, generateInitials } from '@/libr/utils'
+import { tripsAPI } from '@/lib/api'
+import { formatCurrency, formatDate, generateInitials } from '@/lib/utils'
 import Link from 'next/link'
 
 interface Trip {
@@ -102,8 +102,7 @@ export default function DashboardPage() {
       )}
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}>
         <div className="flex flex-col h-full">
           {/* Logo */}
