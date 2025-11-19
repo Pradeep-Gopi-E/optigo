@@ -584,14 +584,25 @@ export default function TripDetailPage() {
             <div className="bg-white rounded-xl shadow-sm p-6">
               <div className="text-center py-12">
                 <Vote className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h2 className="text-xl font-semibold text-gray-900 mb-2">Voting Coming Soon</h2>
-                <p className="text-gray-600 mb-6">Generate recommendations first, then start the voting process</p>
-                <button
-                  onClick={() => setActiveTab('recommendations')}
-                  className="btn btn-primary"
-                >
-                  Generate Recommendations
-                </button>
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">Ready to Vote?</h2>
+                <p className="text-gray-600 mb-6">
+                  {recommendations.length === 0
+                    ? 'Generate recommendations first, then start the voting process'
+                    : 'Cast your vote using our ranked-choice voting system'}
+                </p>
+                {recommendations.length === 0 ? (
+                  <button
+                    onClick={() => setActiveTab('recommendations')}
+                    className="btn btn-primary"
+                  >
+                    Generate Recommendations
+                  </button>
+                ) : (
+                  <Link href={`/trips/${trip.id}/vote`} className="btn btn-primary">
+                    <Vote className="w-4 h-4 mr-2" />
+                    Go to Voting
+                  </Link>
+                )}
               </div>
             </div>
           )}
