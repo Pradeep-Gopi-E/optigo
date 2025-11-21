@@ -8,6 +8,7 @@ from google.generativeai.types import HarmCategory, HarmBlockThreshold
 from ..models import Preference, Recommendation, Trip, User
 from ..config import settings
 from ..schemas.preference import PreferenceType
+from ..models import Participant
 
 logger = logging.getLogger(__name__)
 
@@ -57,15 +58,6 @@ class AIService:
     def generate_recommendations(self, trip_id: str) -> List[Recommendation]:
         """
         Generate AI-powered destination recommendations for a trip
-
-        Args:
-            trip_id: UUID of the trip
-
-        Returns:
-            List of created Recommendation objects
-
-        Raises:
-            Exception: If AI generation fails
         """
         self._log_debug(f"Generating recommendations for trip {trip_id}")
         try:
@@ -82,8 +74,12 @@ class AIService:
             # Get all preferences for this trip
             preferences = self.db.query(Preference).filter(Preference.trip_id == trip_id).all()
 
+            # Get participants and their locations
+            participants = self.db.query(User).join(Participant).filter(Participant.trip_id == trip_id).all()
+            participant_locations = [f"{p.name}: {p.location or 'Unknown'}" for p in participants]
+            
             # Build prompt and call Gemini
-            prompt = self._build_ai_prompt(trip, preferences)
+            prompt = self._build_ai_prompt(trip, preferences, participant_locations)
             
             self._log_debug("\n" + "="*50)
             self._log_debug(f"SENDING REQUEST TO GEMINI ({settings.GEMINI_MODEL})")
@@ -110,28 +106,33 @@ class AIService:
                 json_text = ai_response_text
 
             try:
-                recommendations_data = json.loads(json_text)
+                # Validate with Pydantic
+                from ..schemas.ai_recommendation import AIResponse
+                
+                # First parse as dict to handle potential loose JSON
+                data_dict = json.loads(json_text)
+                
+                # Validate against schema
+                validated_response = AIResponse(**data_dict)
+                
+                return self._create_recommendations_from_ai(trip_id, validated_response.recommendations)
 
-                if "recommendations" not in recommendations_data:
-                    logger.error("Invalid AI response format")
-                    self._log_debug("Invalid AI response format (missing 'recommendations' key)")
-                    return self._generate_fallback_recommendations(trip_id)
-
-                return self._create_recommendations_from_ai(trip_id, recommendations_data["recommendations"])
-
-            except json.JSONDecodeError as e:
-                logger.error(f"Error parsing AI response JSON: {str(e)}")
-                self._log_debug(f"Error parsing AI response JSON: {str(e)}")
+            except (json.JSONDecodeError, Exception) as e:
+                logger.error(f"Error parsing/validating AI response: {str(e)}")
+                print(f"DEBUG: Error parsing/validating AI response: {str(e)}")
+                self._log_debug(f"Error parsing/validating AI response: {str(e)}")
                 return self._generate_fallback_recommendations(trip_id)
 
         except Exception as e:
             logger.error(f"Error generating AI recommendations: {str(e)}")
+            print(f"DEBUG: Error generating AI recommendations: {str(e)}")
             self._log_debug(f"Error generating AI recommendations: {str(e)}")
             import traceback
+            traceback.print_exc()
             self._log_debug(traceback.format_exc())
             return self._generate_fallback_recommendations(trip_id)
 
-    def _build_ai_prompt(self, trip: Trip, preferences: List[Preference]) -> str:
+    def _build_ai_prompt(self, trip: Trip, preferences: List[Preference], participant_locations: List[str]) -> str:
         """Build enhanced AI prompt with trip and preference data"""
 
         # Group preferences by type
@@ -140,11 +141,10 @@ class AIService:
             preference_data[pref.preference_type.value] = pref.preference_data
 
         # Get participant count
-        participant_count = self.db.query(Preference.user_id).filter(
-            Preference.trip_id == trip.id
-        ).distinct().count()
-
+        participant_count = len(participant_locations)
         expected_size = trip.expected_participants or participant_count
+        
+        locations_str = ", ".join(participant_locations)
 
         prompt = f"""You are an expert travel AI specializing in group trips. Generate UNIQUE and DIVERSE destination recommendations.
 
@@ -155,6 +155,7 @@ TRIP CONTEXT:
 │ Budget (per person)     │ ${trip.budget_min or 'Flex'} - ${trip.budget_max or 'Flex'} │
 │ Travel Dates            │ {trip.start_date or 'Flexible'} to {trip.end_date or 'Flexible'} │
 │ Destination Preference  │ {trip.destination or 'Open'}     │
+│ Participant Locations   │ {locations_str}                  │
 └─────────────────────────┴──────────────────────────────────┘
 
 GROUP PREFERENCES:
@@ -163,28 +164,12 @@ GROUP PREFERENCES:
         # Add preferences
         if "detailed" in preference_data:
             detailed = preference_data["detailed"]
-            
-            if detailed.get("accommodation_type"):
-                prompt += f"• Accommodation Type: {detailed['accommodation_type']}\n"
-            
-            if detailed.get("accommodation_amenities"):
-                amenities = ', '.join(detailed['accommodation_amenities'])
-                prompt += f"• Required Amenities: {amenities}\n"
-                
-            if detailed.get("must_have_activities"):
-                must_haves = ', '.join(detailed['must_have_activities'])
-                prompt += f"• Must-Do Activities: {must_haves}\n"
-
-            if detailed.get("avoid_activities"):
-                avoids = ', '.join(detailed['avoid_activities'])
-                prompt += f"• Avoid Activities: {avoids}\n"
-
-            if detailed.get("dietary_restrictions"):
-                dietary = ', '.join(detailed['dietary_restrictions'])
-                prompt += f"• Dietary Restrictions: {dietary}\n"
-
-            if detailed.get("trip_description"):
-                prompt += f"• Trip Description/Notes: {detailed['trip_description']}\n"
+            if detailed.get("accommodation_type"): prompt += f"• Accommodation Type: {detailed['accommodation_type']}\n"
+            if detailed.get("accommodation_amenities"): prompt += f"• Required Amenities: {', '.join(detailed['accommodation_amenities'])}\n"
+            if detailed.get("must_have_activities"): prompt += f"• Must-Do Activities: {', '.join(detailed['must_have_activities'])}\n"
+            if detailed.get("avoid_activities"): prompt += f"• Avoid Activities: {', '.join(detailed['avoid_activities'])}\n"
+            if detailed.get("dietary_restrictions"): prompt += f"• Dietary Restrictions: {', '.join(detailed['dietary_restrictions'])}\n"
+            if detailed.get("trip_description"): prompt += f"• Trip Description/Notes: {detailed['trip_description']}\n"
 
         if "vibe" in preference_data and "detailed" not in preference_data:
              vibe = preference_data["vibe"]
@@ -201,31 +186,32 @@ CRITICAL REQUIREMENTS:
 2. TOP ATTRACTIONS REQUIRED - For EACH destination include:
    • 5 SPECIFIC must-visit landmarks with actual names
    • Unique local experiences
-   • Hidden gems locals recommend
    
-3. BE SPECIFIC, NOT GENERIC:
-   ❌ BAD: "Beautiful beaches"
-   ✅ GOOD: "Nusa Dua Beach, Tanah Lot Temple, Ubud Monkey Forest"
+3. PERSONALIZED LOGISTICS:
+   • Consider where participants are traveling from ({locations_str}).
+   • Suggest destinations that are reasonably accessible for everyone.
+   • Provide estimated cost breakdown per person based on their origin (flights + stay).
 
-4. GROUP-FRIENDLY for {expected_size} people
-   • Ensure accommodation and activities can handle this group size.
+4. STRICT JSON FORMAT:
+   • You must return ONLY valid JSON matching the schema below.
+   • No markdown formatting, no extra text.
 
-5. RESPECT PREFERENCES:
-   • If "must have" activities are listed, ONLY suggest destinations that excel in them.
-   • If "avoid" activities are listed, DO NOT suggest destinations centered around them.
-   • Respect dietary restrictions in food recommendations.
-
-Generate in this EXACT JSON format:
-```json
+JSON SCHEMA:
 {{
   "recommendations": [
     {{
       "destination": "City, Country",
-      "description": "2-3 sentences why perfect for THIS group and their specific preferences",
-      "estimated_cost_per_person": "$X,XXX",
-      "highlights": ["Specific Attraction 1", "Specific Attraction 2", "Specific Attraction 3", "Specific Attraction 4", "Specific Attraction 5"],
+      "continent": "Continent Name",
+      "experience_type": "beach|mountain|city|cultural|adventure",
+      "description": "2-3 sentences why perfect for THIS group",
+      "estimated_cost_per_person": "$X,XXX (Average)",
+      "cost_breakdown": {{
+        "User Name (Location)": "$X,XXX",
+        "User Name 2 (Location)": "$X,XXX"
+      }},
+      "highlights": ["Attraction 1", "Attraction 2", "Attraction 3", "Attraction 4", "Attraction 5"],
       "best_for": "Type of travelers",
-      "weather_info": "Expected weather during travel dates",
+      "weather_info": "Expected weather during specific travel dates",
       "activities": ["activity1", "activity2", "activity3", "activity4"],
       "accommodation_options": ["Specific hotel/area 1", "Specific hotel/area 2"],
       "transportation_notes": "How to get there and around",
@@ -233,30 +219,41 @@ Generate in this EXACT JSON format:
     }}
   ]
 }}
-```
 
-Generate 3-5 COMPLETELY DIFFERENT recommendations. Each must be unique!
+Generate 3-5 COMPLETELY DIFFERENT recommendations.
 """
-
         return prompt
 
-    def _create_recommendations_from_ai(self, trip_id: str, recommendations_data: List[Dict]) -> List[Recommendation]:
+    def _create_recommendations_from_ai(self, trip_id: str, recommendations_data: List[Any]) -> List[Recommendation]:
         """Create Recommendation objects from AI response data"""
         created_recommendations = []
 
         try:
             for rec_data in recommendations_data:
-                # Extract highlights as activities if activities not provided
-                activities = rec_data.get("activities", rec_data.get("highlights", []))
-                
+                # Convert Pydantic model to dict if needed
+                if hasattr(rec_data, 'model_dump'):
+                    rec_dict = rec_data.model_dump()
+                else:
+                    rec_dict = rec_data
+
                 recommendation = Recommendation(
                     trip_id=trip_id,
-                    destination_name=rec_data.get("destination", "Unknown Destination"),
-                    description=rec_data.get("description", ""),
-                    estimated_cost=self._parse_cost(rec_data.get("estimated_cost_per_person")),
-                    activities=activities[:10],  # Limit to 10 activities
-                    accommodation_options=rec_data.get("accommodation_options", []),
-                    transportation_options=[rec_data.get("transportation_notes", "")],
+                    destination_name=rec_dict.get("destination", "Unknown Destination"),
+                    description=rec_dict.get("description", ""),
+                    estimated_cost=self._parse_cost(rec_dict.get("estimated_cost_per_person")),
+                    activities=rec_dict.get("activities", [])[:10],
+                    accommodation_options=rec_dict.get("accommodation_options", []),
+                    # transportation_options removed from here as it's not in the model
+                    weather_info=rec_dict.get("weather_info"),
+                    meta={
+                        "continent": rec_dict.get("continent"),
+                        "experience_type": rec_dict.get("experience_type"),
+                        "cost_breakdown": rec_dict.get("cost_breakdown"),
+                        "match_reason": rec_dict.get("match_reason"),
+                        "best_for": rec_dict.get("best_for"),
+                        "highlights": rec_dict.get("highlights"),
+                        "transportation_options": [rec_dict.get("transportation_notes", "")]
+                    },
                     ai_generated=True
                 )
 
@@ -273,6 +270,9 @@ Generate 3-5 COMPLETELY DIFFERENT recommendations. Each must be unique!
 
         except Exception as e:
             logger.error(f"Error creating recommendations from AI data: {str(e)}")
+            print(f"DEBUG: Error creating recommendations from AI data: {str(e)}")
+            import traceback
+            traceback.print_exc()
             self.db.rollback()
             return []
 
@@ -280,56 +280,49 @@ Generate 3-5 COMPLETELY DIFFERENT recommendations. Each must be unique!
         """Parse cost string to extract numeric value"""
         if not cost_string:
             return None
-
         try:
-            # Extract numeric value from strings like "$1,500" or "$1,500-$2,000"
             import re
-            cost_match = re.search(r'\$?([0-9,]+)', cost_string.replace(',', ''))
+            cost_match = re.search(r'\$?([0-9,]+)', str(cost_string).replace(',', ''))
             if cost_match:
                 return float(cost_match.group(1))
         except Exception:
             pass
-
         return None
 
     def _generate_fallback_recommendations(self, trip_id: str) -> List[Recommendation]:
         """Generate fallback recommendations when AI is not available"""
         logger.info(f"Generating fallback recommendations for trip {trip_id}")
-
+        
         fallback_recs = [
             {
                 "destination": "Barcelona, Spain",
-                "description": "Perfect blend of culture, beaches, and vibrant nightlife. Great for groups with diverse interests.",
+                "description": "Perfect blend of culture, beaches, and vibrant nightlife.",
                 "estimated_cost_per_person": "$1,200",
-                "highlights": ["Sagrada Familia", "Park Güell", "La Rambla", "Gothic Quarter", "Barceloneta Beach"],
+                "highlights": ["Sagrada Familia", "Park Güell"],
+                "weather_info": "Sunny, 25°C",
+                "activities": ["Sightseeing", "Beach"],
+                "continent": "Europe", 
+                "experience_type": "City/Beach",
+                "cost_breakdown": {"User 1 (New York)": "$1500", "User 2 (London)": "$1200"},
+                "match_reason": "Good for culture and relaxation",
                 "best_for": "Cultural enthusiasts and beach lovers",
-                "weather_info": "Mediterranean climate with warm summers and mild winters",
-                "activities": ["Sightseeing", "Beach time", "Food tours", "Museum visits"],
-                "accommodation_options": ["Hotels in Eixample", "Airbnb in Gothic Quarter"],
-                "transportation_notes": "Well-connected by air, excellent public transport"
+                "accommodation_options": ["Hotel Arts Barcelona", "W Barcelona"],
+                "transportation_notes": "Fly into BCN, use metro for city travel"
             },
             {
-                "destination": "Lisbon, Portugal",
-                "description": "Charming coastal city with historic neighborhoods, great food, and affordable prices.",
-                "estimated_cost_per_person": "$1,000",
-                "highlights": ["Belém Tower", "Jerónimos Monastery", "São Jorge Castle", "Tram 28", "Alfama District"],
-                "best_for": "Budget-conscious travelers and culture seekers",
-                "weather_info": "Mild climate year-round, best in spring and fall",
-                "activities": ["Historic tours", "Beach visits", "Food exploration", "Day trips"],
-                "accommodation_options": ["Boutique hotels in Chiado", "Guesthouses in Bairro Alto"],
-                "transportation_notes": "Walkable city center, good tram and metro system"
-            },
-            {
-                "destination": "Prague, Czech Republic",
-                "description": "Fairytale city with stunning architecture, rich history, and excellent beer culture.",
-                "estimated_cost_per_person": "$800",
-                "highlights": ["Prague Castle", "Charles Bridge", "Old Town Square", "Astronomical Clock", "Vyšehrad"],
-                "best_for": "History buffs and budget travelers",
-                "weather_info": "Four distinct seasons, beautiful in spring and fall",
-                "activities": ["Historic tours", "Castle visits", "Beer tasting", "River cruises"],
-                "accommodation_options": ["Historic hotels in Old Town", "Apartments in Malá Strana"],
-                "transportation_notes": "Walkable city center, efficient public transport"
+                "destination": "Kyoto, Japan",
+                "description": "Immerse in ancient traditions, stunning temples, and serene gardens.",
+                "estimated_cost_per_person": "$2,500",
+                "highlights": ["Kinkaku-ji", "Fushimi Inari-taisha", "Arashiyama Bamboo Grove"],
+                "weather_info": "Mild, 18°C",
+                "activities": ["Temple visits", "Tea ceremonies"],
+                "continent": "Asia", 
+                "experience_type": "Cultural",
+                "cost_breakdown": {"User 1 (New York)": "$3000", "User 2 (London)": "$2800"},
+                "match_reason": "Rich cultural experience",
+                "best_for": "History buffs and serene travelers",
+                "accommodation_options": ["Ryokan in Gion", "Kyoto Hotel Okura"],
+                "transportation_notes": "Fly into KIX, take train to Kyoto, use buses/subway"
             }
         ]
-
         return self._create_recommendations_from_ai(trip_id, fallback_recs)

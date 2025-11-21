@@ -7,15 +7,16 @@ logger = logging.getLogger(__name__)
 
 # Custom instant-runoff voting implementation
 class Candidate:
-    def __init__(self, id: str, name: str):
+    def __init__(self, id: str, destination_name: str, description: str = ""):
         self.id = id
-        self.name = name
+        self.destination_name = destination_name
+        self.description = description
 
     def __str__(self):
-        return self.name
+        return self.destination_name
 
     def __repr__(self):
-        return f"Candidate(id={self.id}, name={self.name})"
+        return f"Candidate(id={self.id}, name={self.destination_name})"
 
 class Ballot:
     def __init__(self, ranking: List[str]):
@@ -198,7 +199,8 @@ class VotingService:
                 } if winner else None,
                 "rounds": self._format_rounds(rounds),
                 "total_voters": unique_voters,
-                "total_candidates": len(candidates)
+                "total_candidates": len(candidates),
+                "candidates": [{"id": c.id, "name": c.destination_name} for c in candidates]
             }
 
         except Exception as e:
@@ -239,7 +241,8 @@ class VotingService:
         for rec in recommendations:
             candidate = Candidate(
                 id=str(rec.id),
-                name=rec.destination_name
+                destination_name=rec.destination_name,
+                description=rec.description or ""
             )
             candidates.append(candidate)
 
@@ -276,14 +279,8 @@ class VotingService:
             True if vote is valid, False otherwise
         """
         try:
-            # Check if user has already voted
-            existing_votes = self.db.query(Vote).filter(
-                Vote.user_id == user_id,
-                Vote.trip_id == trip_id
-            ).first()
-
-            if existing_votes:
-                return False  # User has already voted
+            # Note: We allow re-voting (updates), so we don't check for existing votes here.
+            # The cast_vote method handles replacing existing votes.
 
             # Get valid recommendations for this trip
             valid_recommendations = self.db.query(Recommendation).filter(

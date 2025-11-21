@@ -7,6 +7,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     name: str
     password: str
+    location: Optional[str] = None
 
 
 class UserLogin(BaseModel):
@@ -17,6 +18,7 @@ class UserLogin(BaseModel):
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     telegram_id: Optional[str] = None
+    location: Optional[str] = None
 
 
 class UserResponse(BaseModel):
@@ -24,6 +26,7 @@ class UserResponse(BaseModel):
     email: str
     name: str
     telegram_id: Optional[str] = None
+    location: Optional[str] = None
     is_active: bool
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

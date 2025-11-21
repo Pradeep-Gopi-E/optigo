@@ -65,21 +65,28 @@ export interface Recommendation {
 export interface Vote {
   id: string;
   trip_id: string;
-  user_id: string;
-  recommendation_id: string;
-  rank: number;
-  created_at: string;
+  has_voted: boolean;
+  vote_count: number;
 }
 
 export interface VotingResult {
-  winner?: Recommendation;
-  rankings: Array<{
-    recommendation: Recommendation;
-    score: number;
-    first_place_votes: number;
+  winner?: {
+    id: string;
+    destination_name: string;
+    description: string;
+  };
+  rounds: Array<{
+    round: number;
+    vote_counts: Record<string, number>;
+    eliminated?: string;
+    winner?: string;
+    total_votes: number;
+    active_candidates: string[];
   }>;
   total_voters: number;
-  status: string;
+  total_candidates: number;
+  candidates: Array<{ id: string; name: string }>;
+  message?: string;
 }
 
 export interface UserVoteSummary {
@@ -160,7 +167,7 @@ export const authAPI = {
     return response.data;
   },
 
-  updateProfile: async (data: { name?: string; telegram_id?: string }) => {
+  updateProfile: async (data: { name?: string; telegram_id?: string; location?: string }) => {
     const headers = getAuthHeaders();
     const response = await axios.put(`${API_BASE_URL}/auth/me`, data, { headers });
     return response.data;
@@ -223,6 +230,12 @@ export const tripsAPI = {
   removeParticipant: async (tripId: string, participantId: string) => {
     const headers = getAuthHeaders();
     const response = await axios.delete(`${API_BASE_URL}/trips/${tripId}/participants/${participantId}`, { headers });
+    return response.data;
+  },
+
+  joinTrip: async (inviteCode: string) => {
+    const headers = getAuthHeaders();
+    const response = await axios.post(`${API_BASE_URL}/join/${inviteCode}`, {}, { headers });
     return response.data;
   },
 };

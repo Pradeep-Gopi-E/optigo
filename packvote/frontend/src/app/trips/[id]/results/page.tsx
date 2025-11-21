@@ -13,9 +13,9 @@ import {
   TrendingUp,
   CheckCircle,
   XCircle,
-  DollarSign // 1. Added DollarSign
+  DollarSign
 } from 'lucide-react'
-import { tripsAPI } from '@/lib/api'
+import { tripsAPI, votesAPI, VotingResult, UserVoteSummary } from '@/lib/api'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -23,35 +23,12 @@ import { Badge } from '@/components/ui/badge'
 import { Navigation } from '@/components/layout/navigation'
 import toast from 'react-hot-toast'
 
-interface VotingResults {
-  winner: {
-    id: string
-    destination: string
-    description: string
-    estimated_cost: number
-    final_votes: number
-  }
-  rounds: Array<{
-    round_number: number
-    eliminated: string[]
-    votes_remaining: Record<string, number>
-  }>
-  total_votes: number
-  voting_complete: boolean
-  voters?: VoterInfo[] // Added 'voters' as optional to match usage
-}
-
-interface VoterInfo {
-  user_name: string
-  voted_at: string
-}
-
 export default function ResultsPage() {
   const router = useRouter()
   const { id: tripId } = useParams()
   const [user, setUser] = useState<any>(null)
-  const [results, setResults] = useState<VotingResults | null>(null)
-  const [voters, setVoters] = useState<VoterInfo[]>([])
+  const [results, setResults] = useState<VotingResult | null>(null)
+  const [voters, setVoters] = useState<UserVoteSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -68,11 +45,14 @@ export default function ResultsPage() {
 
   const fetchResults = async () => {
     try {
-      // 3. Fixed API type error temporarily. See explanation below.
-      const response = await (tripsAPI as any).getResults(tripId as string)
-      setResults(response)
-      setVoters(response.voters || [])
+      const [resultsResponse, summaryResponse] = await Promise.all([
+        votesAPI.getResults(tripId as string),
+        votesAPI.getVotingSummary(tripId as string)
+      ])
+      setResults(resultsResponse)
+      setVoters(summaryResponse || [])
     } catch (error: any) {
+      console.error('Error fetching results:', error)
       toast.error(error.response?.data?.detail || 'Failed to fetch results')
     } finally {
       setIsLoading(false)
@@ -95,14 +75,14 @@ export default function ResultsPage() {
     )
   }
 
-  if (!results) {
+  if (!results || !results.rounds || results.rounds.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center max-w-md">
           <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-900 mb-2">No Results Available</h2>
           <p className="text-gray-600 mb-4">
-            Voting hasn't started or there are no votes to display.
+            {results?.message || "Voting hasn't started or there are no votes to display."}
           </p>
           <Button onClick={() => router.push(`/trips/${tripId}`)}>
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -112,6 +92,8 @@ export default function ResultsPage() {
       </div>
     )
   }
+
+  const isVotingComplete = !!results.winner
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -141,15 +123,15 @@ export default function ResultsPage() {
               <div className="flex items-center space-x-4">
                 <Badge variant="secondary" className="flex items-center">
                   <Users className="w-3 h-3 mr-1" />
-                  {results.total_votes} Votes
+                  {results.total_voters} Voters
                 </Badge>
                 <Badge
-                  variant={results.voting_complete ? "success" : "warning"}
+                  variant={isVotingComplete ? "success" : "warning"}
                   className="flex items-center"
                 >
-                  {getStatusIcon(results.voting_complete)}
+                  {getStatusIcon(isVotingComplete)}
                   <span className="ml-1">
-                    {results.voting_complete ? 'Complete' : 'In Progress'}
+                    {isVotingComplete ? 'Complete' : 'In Progress'}
                   </span>
                 </Badge>
               </div>
@@ -160,7 +142,7 @@ export default function ResultsPage() {
         <div className="px-4 sm:px-6 lg:px-8 py-8">
           <div className="max-w-6xl mx-auto space-y-8">
             {/* Winner Section */}
-            {results.winner && results.voting_complete && (
+            {results.winner && isVotingComplete && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -176,19 +158,15 @@ export default function ResultsPage() {
                   <CardContent>
                     <div className="text-center">
                       <h2 className="text-3xl font-bold text-gray-900 mb-2">
-                        {results.winner.destination}
+                        {results.winner.destination_name}
                       </h2>
                       <p className="text-gray-600 mb-4">
                         {results.winner.description}
                       </p>
                       <div className="flex items-center justify-center space-x-6 text-sm text-gray-500">
                         <span className="flex items-center">
-                          <DollarSign className="w-4 h-4 mr-1" />
-                          {formatCurrency(results.winner.estimated_cost)}
-                        </span>
-                        <span className="flex items-center">
                           <Vote className="w-4 h-4 mr-1" />
-                          {results.winner.final_votes} final votes
+                          Winner
                         </span>
                       </div>
                     </div>
@@ -206,7 +184,7 @@ export default function ResultsPage() {
               <div className="grid gap-6 lg:grid-cols-2">
                 {results.rounds.map((round, index) => (
                   <motion.div
-                    key={round.round_number}
+                    key={round.round}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.1 }}
@@ -214,10 +192,10 @@ export default function ResultsPage() {
                     <Card>
                       <CardHeader>
                         <CardTitle className="flex items-center">
-                          Round {round.round_number}
-                          {round.eliminated.length > 0 && (
+                          Round {round.round}
+                          {round.eliminated && (
                             <Badge variant="destructive" className="ml-2">
-                              {round.eliminated.length} Eliminated
+                              1 Eliminated
                             </Badge>
                           )}
                         </CardTitle>
@@ -228,42 +206,50 @@ export default function ResultsPage() {
                           <div>
                             <h4 className="text-sm font-medium text-gray-700 mb-2">Votes Remaining:</h4>
                             <div className="space-y-2">
-                              {Object.entries(round.votes_remaining).map(([destination, votes]) => (
-                                <div key={destination} className="flex items-center justify-between">
-                                  <span className="text-sm text-gray-900">{destination}</span>
-                                  <div className="flex items-center">
-                                    <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                                      <div
-                                        className="bg-primary h-2 rounded-full"
-                                        style={{
-                                          width: `${(votes / Math.max(1, ...Object.values(round.votes_remaining))) * 100}%` // Added Math.max(1, ...) to avoid 0/0
-                                        }}
-                                      ></div>
+                              {Object.entries(round.vote_counts).map(([destinationId, votes]) => {
+                                const candidateName = results.candidates?.find(c => c.id === destinationId)?.name || 'Unknown Candidate';
+                                return (
+                                  <div key={destinationId} className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-900 truncate max-w-[200px]" title={candidateName}>
+                                      {candidateName}
+                                    </span>
+                                    <div className="flex items-center">
+                                      <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                                        <div
+                                          className="bg-primary h-2 rounded-full"
+                                          style={{
+                                            width: `${(votes / Math.max(1, ...Object.values(round.vote_counts))) * 100}%`
+                                          }}
+                                        ></div>
+                                      </div>
+                                      <span className="text-sm font-medium">{votes}</span>
                                     </div>
-                                    <span className="text-sm font-medium">{votes}</span>
                                   </div>
-                                </div>
-                              ))}
+                                )
+                              })}
                             </div>
                           </div>
 
                           {/* Eliminated Options */}
-                          {round.eliminated.length > 0 && (
+                          {round.eliminated && (
                             <div>
                               <h4 className="text-sm font-medium text-red-700 mb-2">Eliminated:</h4>
                               <div className="flex flex-wrap gap-2">
-                                {round.eliminated.map((eliminated) => (
-                                  <Badge key={eliminated} variant="destructive">
-                                    {eliminated}
-                                  </Badge>
-                                ))}
+                                {(() => {
+                                  const eliminatedName = results.candidates?.find(c => c.id === round.eliminated)?.name || 'Unknown Candidate';
+                                  return (
+                                    <Badge key={round.eliminated} variant="destructive">
+                                      {eliminatedName}
+                                    </Badge>
+                                  );
+                                })()}
                               </div>
                             </div>
                           )}
                         </div>
                       </CardContent>
                     </Card>
-                  </motion.div> // 2. Added this closing </motion.div> tag
+                  </motion.div>
                 ))}
               </div>
             </div>
@@ -276,7 +262,7 @@ export default function ResultsPage() {
                   Who Voted
                 </h2>
                 <Card>
-                  <CardContent className="pt-6"> {/* Added padding-top for better spacing */}
+                  <CardContent className="pt-6">
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {voters.map((voter, index) => (
                         <motion.div
@@ -295,8 +281,9 @@ export default function ResultsPage() {
                             </span>
                           </div>
                           <div className="flex items-center text-xs text-gray-500">
-                            <Clock className="w-3 h-3 mr-1" />
-                            {formatDate(voter.voted_at)}
+                            <Badge variant={voter.has_voted ? "default" : "secondary"}>
+                              {voter.has_voted ? "Voted" : "Pending"}
+                            </Badge>
                           </div>
                         </motion.div>
                       ))}
@@ -308,7 +295,7 @@ export default function ResultsPage() {
 
             {/* Action Buttons */}
             <div className="flex justify-center space-x-4">
-              {!results.voting_complete && (
+              {!isVotingComplete && (
                 <Button onClick={() => router.push(`/trips/${tripId}/vote`)}>
                   <Vote className="w-4 h-4 mr-2" />
                   {user ? 'Cast Your Vote' : 'Sign In to Vote'}

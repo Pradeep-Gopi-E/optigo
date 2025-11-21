@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd'
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Save, GripVertical, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { tripsAPI, recommendationsAPI, votesAPI } from '@/lib/api'
@@ -32,16 +32,6 @@ export default function VotingPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [hasVoted, setHasVoted] = useState(false)
-    // Fix for React 18 Strict Mode with react-beautiful-dnd
-    const [enabled, setEnabled] = useState(false)
-
-    useEffect(() => {
-        const animation = requestAnimationFrame(() => setEnabled(true))
-        return () => {
-            cancelAnimationFrame(animation)
-            setEnabled(false)
-        }
-    }, [])
 
     useEffect(() => {
         if (tripId) {
@@ -120,10 +110,6 @@ export default function VotingPage() {
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
         )
-    }
-
-    if (!enabled) {
-        return null
     }
 
     return (

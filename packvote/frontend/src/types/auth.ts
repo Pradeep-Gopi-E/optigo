@@ -17,6 +17,7 @@ export interface RegisterData {
   email: string
   name: string
   password: string
+  location?: string
 }
 
 export interface AuthResponse {
@@ -29,4 +30,5 @@ export interface AuthResponse {
 export interface UserProfileUpdate {
   name?: string
   telegram_id?: string
+  location?: string
 }

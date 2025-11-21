@@ -64,7 +64,7 @@ async def get_trip_recommendations(
                 estimated_cost=float(rec.estimated_cost) if rec.estimated_cost else None,
                 activities=rec.activities,
                 accommodation_options=rec.accommodation_options,
-                transportation_options=rec.transportation_options,
+                transportation_options=rec.meta.get("transportation_options", []) if rec.meta else [],
                 ai_generated=rec.ai_generated,
                 created_at=rec.created_at
             )
@@ -198,7 +198,7 @@ async def create_custom_recommendation(
             estimated_cost=recommendation_data.estimated_cost,
             activities=recommendation_data.activities,
             accommodation_options=recommendation_data.accommodation_options,
-            transportation_options=recommendation_data.transportation_options,
+            meta={"transportation_options": recommendation_data.transportation_options},
             ai_generated=recommendation_data.ai_generated
         )
 
@@ -214,7 +214,7 @@ async def create_custom_recommendation(
             estimated_cost=float(new_recommendation.estimated_cost) if new_recommendation.estimated_cost else None,
             activities=new_recommendation.activities,
             accommodation_options=new_recommendation.accommodation_options,
-            transportation_options=new_recommendation.transportation_options,
+            transportation_options=new_recommendation.meta.get("transportation_options", []) if new_recommendation.meta else [],
             ai_generated=new_recommendation.ai_generated,
             created_at=new_recommendation.created_at
         )
@@ -278,7 +278,7 @@ async def get_recommendation(
             estimated_cost=float(recommendation.estimated_cost) if recommendation.estimated_cost else None,
             activities=recommendation.activities,
             accommodation_options=recommendation.accommodation_options,
-            transportation_options=recommendation.transportation_options,
+            transportation_options=recommendation.meta.get("transportation_options", []) if recommendation.meta else [],
             ai_generated=recommendation.ai_generated,
             created_at=recommendation.created_at
         )

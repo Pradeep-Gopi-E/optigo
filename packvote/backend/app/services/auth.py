@@ -7,8 +7,6 @@ from sqlalchemy import or_
 
 from ..models import User, Participant, Trip
 from ..utils.security import (
-    # verify_password, # Removed
-    # get_password_hash, # Removed
     create_access_token,
     verify_token
 )
@@ -24,7 +22,7 @@ class AuthService:
     def __init__(self, db: Session):
         self.db = db
 
-    def register_user(self, email: str, name: str, password: str) -> Dict[str, Any]:
+    def register_user(self, email: str, name: str, password: str, location: Optional[str] = None) -> Dict[str, Any]:
         """
         Register a new user
         """
@@ -47,11 +45,11 @@ class AuthService:
             hashed_password_str = hashed_password_bytes.decode('utf-8')
             
             # --- FIX: SAVE HASHED PASSWORD TO THE NEW USER ---
-            # (This assumes your User model has a field named 'hashed_password')
             new_user = User(
                 email=email,
                 name=name,
-                hashed_password=hashed_password_str, # <-- THIS WAS THE LOGIC BUG
+                hashed_password=hashed_password_str,
+                location=location,
                 is_active=True
             )
 
@@ -74,6 +72,7 @@ class AuthService:
                     "id": str(new_user.id),
                     "email": new_user.email,
                     "name": new_user.name,
+                    "location": new_user.location,
                     "is_active": new_user.is_active,
                     "created_at": new_user.created_at.isoformat() if new_user.created_at else None
                 }
@@ -138,6 +137,7 @@ class AuthService:
                     "id": str(user.id),
                     "email": user.email,
                     "name": user.name,
+                    "location": user.location,
                     "is_active": user.is_active,
                     "created_at": user.created_at.isoformat() if user.created_at else None
                 }
@@ -224,7 +224,7 @@ class AuthService:
             logger.error(f"Error checking trip access: {str(e)}")
             return False
 
-    def update_user_profile(self, user_id: str, name: Optional[str] = None, telegram_id: Optional[str] = None) -> User:
+    def update_user_profile(self, user_id: str, name: Optional[str] = None, telegram_id: Optional[str] = None, location: Optional[str] = None) -> User:
         """
         Update user profile information
         """
@@ -255,6 +255,8 @@ class AuthService:
                 user.name = name
             if telegram_id is not None:
                 user.telegram_id = telegram_id
+            if location is not None:
+                user.location = location
 
             user.updated_at = datetime.utcnow()
 

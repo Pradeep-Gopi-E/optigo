@@ -58,6 +58,15 @@ interface Recommendation {
   accommodation_options?: string[]
   ai_generated: boolean
   created_at: string
+  weather_info?: string
+  meta?: {
+    continent?: string
+    experience_type?: string
+    cost_breakdown?: Record<string, string>
+    match_reason?: string
+    best_for?: string
+    highlights?: string[]
+  }
 }
 
 type Tab = 'overview' | 'participants' | 'recommendations' | 'voting'
@@ -571,41 +580,104 @@ export default function TripDetailPage() {
                       {recommendations.map((rec) => (
                         <div key={rec.id} className="border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow bg-white">
                           <div className="flex items-start justify-between mb-4">
-                            <div>
-                              <div className="flex items-center mb-2">
+                            <div className="flex-1 mr-4">
+                              <div className="flex items-center mb-2 flex-wrap gap-2">
                                 <h3 className="text-lg font-semibold text-gray-900">{rec.destination_name}</h3>
                                 {rec.ai_generated && (
-                                  <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                                     <Brain className="w-3 h-3 mr-1" />
-                                    AI Generated
+                                    AI
+                                  </span>
+                                )}
+                                {rec.meta?.experience_type && (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                                    {rec.meta.experience_type}
                                   </span>
                                 )}
                               </div>
+
                               {rec.description && (
-                                <p className="text-gray-600 leading-relaxed">{rec.description}</p>
+                                <p className="text-gray-600 leading-relaxed mb-3">{rec.description}</p>
+                              )}
+
+                              {rec.meta?.match_reason && (
+                                <div className="mb-3 p-3 bg-green-50 rounded-lg border border-green-100">
+                                  <p className="text-sm text-green-800">
+                                    <span className="font-semibold">Why it matches:</span> {rec.meta.match_reason}
+                                  </p>
+                                </div>
                               )}
                             </div>
-                            {rec.estimated_cost && (
-                              <div className="text-right min-w-[120px]">
-                                <p className="text-sm text-gray-500">Est. Cost/Person</p>
-                                <p className="text-xl font-bold text-gray-900">
-                                  {formatCurrency(rec.estimated_cost)}
-                                </p>
-                              </div>
-                            )}
+
+                            <div className="text-right min-w-[140px]">
+                              {rec.estimated_cost && (
+                                <div className="mb-2">
+                                  <p className="text-sm text-gray-500">Est. Cost/Person</p>
+                                  <p className="text-xl font-bold text-gray-900">
+                                    {formatCurrency(rec.estimated_cost)}
+                                  </p>
+                                </div>
+                              )}
+                              {rec.weather_info && (
+                                <div className="text-sm text-gray-600 bg-orange-50 p-2 rounded-lg inline-block w-full text-left">
+                                  <div className="flex items-center gap-1 mb-1">
+                                    <span className="font-medium text-orange-800">Weather</span>
+                                  </div>
+                                  {rec.weather_info}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          {rec.activities && rec.activities.length > 0 && (
-                            <div className="mb-4">
-                              <p className="text-sm font-medium text-gray-900 mb-2">Activities</p>
-                              <div className="flex flex-wrap gap-2">
-                                {rec.activities.map((activity, idx) => (
-                                  <span key={idx} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
-                                    {activity}
-                                  </span>
+
+                          {/* Cost Breakdown */}
+                          {rec.meta?.cost_breakdown && Object.keys(rec.meta.cost_breakdown).length > 0 && (
+                            <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                              <p className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                                <DollarSign className="w-4 h-4 mr-1" />
+                                Cost Breakdown by Origin
+                              </p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {Object.entries(rec.meta.cost_breakdown).map(([key, value]) => (
+                                  <div key={key} className="flex justify-between text-sm">
+                                    <span className="text-gray-600 truncate mr-2" title={key}>{key}:</span>
+                                    <span className="font-medium text-gray-900">{value}</span>
+                                  </div>
                                 ))}
                               </div>
                             </div>
                           )}
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            {/* Highlights */}
+                            {rec.meta?.highlights && rec.meta.highlights.length > 0 && (
+                              <div>
+                                <p className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                                  <Star className="w-4 h-4 mr-1 text-yellow-500" />
+                                  Highlights
+                                </p>
+                                <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
+                                  {rec.meta.highlights.map((highlight, idx) => (
+                                    <li key={idx} className="truncate" title={highlight}>{highlight}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* Activities */}
+                            {rec.activities && rec.activities.length > 0 && (
+                              <div>
+                                <p className="text-sm font-medium text-gray-900 mb-2">Activities</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {rec.activities.map((activity, idx) => (
+                                    <span key={idx} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                                      {activity}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
                           {rec.accommodation_options && rec.accommodation_options.length > 0 && (
                             <div>
                               <p className="text-sm font-medium text-gray-900 mb-2">Accommodation Options</p>

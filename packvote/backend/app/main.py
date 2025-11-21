@@ -6,7 +6,7 @@ import sys
 
 from .config import settings
 from .utils.database import engine, Base
-from .api import auth_router, trips_router, votes_router, recommendations_router, telegram_router, preferences_router
+from .api import auth_router, trips_router, votes_router, recommendations_router, telegram_router, preferences_router, join_trip_router
 
 # Configure logging
 logging.basicConfig(
@@ -41,6 +41,16 @@ app.add_middleware(
 )
 
 
+# Include routers
+app.include_router(auth_router, prefix="/api")
+app.include_router(trips_router, prefix="/api")
+app.include_router(votes_router, prefix="/api")
+app.include_router(recommendations_router, prefix="/api")
+app.include_router(telegram_router, prefix="/api")
+app.include_router(preferences_router, prefix="/api")
+app.include_router(join_trip_router, prefix="/api")
+
+
 # Global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
@@ -50,20 +60,6 @@ async def global_exception_handler(request, exc):
         content={"detail": "Internal server error", "message": "An unexpected error occurred"}
     )
 
-
-# Include routers
-app.include_router(auth_router, prefix="/api")
-app.include_router(trips_router, prefix="/api")
-app.include_router(preferences_router, prefix="/api")
-app.include_router(votes_router, prefix="/api")
-app.include_router(recommendations_router, prefix="/api")
-app.include_router(telegram_router, prefix="/api")
-
-
-# Health check endpoint
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
     return {
         "status": "healthy",
         "app_name": settings.APP_NAME,

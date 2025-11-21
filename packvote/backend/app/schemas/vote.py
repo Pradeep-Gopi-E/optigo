@@ -19,22 +19,22 @@ class VoteResponse(BaseModel):
     recommendation_id: str
     rank: int
     created_at: Optional[datetime] = None
-    destination_name: Optional[str] = None
+    has_voted: bool
+    vote_count: int
 
     class Config:
         from_attributes = True
-
-
-class VotingResult(BaseModel):
-    winner: Optional[Dict[str, Any]] = None
-    rounds: List[Dict[str, Any]] = []
-    total_voters: int
-    total_candidates: int
-    message: Optional[str] = None
-
 
 class UserVoteSummary(BaseModel):
     user_id: str
     user_name: str
     has_voted: bool
     vote_count: int
+
+class VotingResult(BaseModel):
+    winner: Optional[Dict[str, Any]] = None
+    rounds: List[Dict[str, Any]]
+    total_voters: int
+    total_candidates: int
+    candidates: List[Dict[str, str]] # id -> name mapping
+    message: Optional[str] = None

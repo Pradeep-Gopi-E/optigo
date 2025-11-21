@@ -1,3 +1,22 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from datetime import datetime
+import logging
+
+from ..utils.database import get_db
+from .auth import get_current_user
+from ..models.trip import Trip
+from ..models.participant import Participant, ParticipantRole as ParticipantRoleModel, ParticipantStatus as ParticipantStatusModel
+
+router = APIRouter()
+logger = logging.getLogger(__name__)
+
+class JoinTripResponse(BaseModel):
+    message: str
+    trip_id: str
+    trip_title: str
+
 @router.post("/join/{invite_code}", response_model=JoinTripResponse)
 async def join_trip_by_code(
     invite_code: str,

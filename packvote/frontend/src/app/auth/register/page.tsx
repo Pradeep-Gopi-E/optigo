@@ -126,6 +126,25 @@ export default function RegisterPage() {
             )}
           </div>
 
+          {/* Location Field */}
+          <div>
+            <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
+              Location (City, Country)
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <User className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                {...register('location')}
+                type="text"
+                id="location"
+                className="input pl-10 w-full"
+                placeholder="New York, USA"
+              />
+            </div>
+          </div>
+
           {/* Password Field */}
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">

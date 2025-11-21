@@ -25,7 +25,7 @@ def validate_access(trip_id: str, current_user, db: Session) -> bool:
         return False
 
 
-@router.get("/", response_model=List[VoteResponse])
+@router.get("", response_model=List[VoteResponse])
 async def get_trip_votes(
     trip_id: str,
     current_user = Depends(get_current_user),
@@ -83,7 +83,7 @@ async def get_trip_votes(
         )
 
 
-@router.post("/", response_model=List[VoteResponse])
+@router.post("", response_model=List[VoteResponse])
 async def cast_votes(
     trip_id: str,
     vote_data: BulkVoteCreate,
@@ -322,7 +322,7 @@ async def get_voting_summary(
         )
 
 
-@router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
 async def withdraw_votes(
     trip_id: str,
     current_user = Depends(get_current_user),
