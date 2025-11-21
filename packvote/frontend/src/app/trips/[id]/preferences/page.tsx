@@ -14,7 +14,8 @@ import {
   Save,
   ChevronRight,
   Star,
-  Timer
+  Timer,
+  FileText
 } from 'lucide-react'
 import { tripsAPI, preferencesAPI } from '@/lib/api'
 import { formatDate } from '@/lib/utils'
@@ -22,6 +23,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Navigation } from '@/components/layout/navigation'
 import toast from 'react-hot-toast'
+import { Textarea } from '@/components/ui/textarea'
 
 interface TripData {
   id: string
@@ -44,6 +46,7 @@ interface PreferenceData {
   avoid_activities: string[]
   dietary_restrictions: string[]
   group_size_preference: string
+  trip_description: string
 }
 
 export default function PreferencesPage() {
@@ -64,10 +67,12 @@ export default function PreferencesPage() {
     must_have_activities: [],
     avoid_activities: [],
     dietary_restrictions: [],
-    group_size_preference: ''
+    group_size_preference: '',
+    trip_description: ''
   })
 
   const steps = [
+    { title: 'Description', icon: FileText },
     { title: 'Accommodation', icon: Heart },
     { title: 'Transportation', icon: MapPin },
     { title: 'Activities', icon: Activity },
@@ -85,7 +90,17 @@ export default function PreferencesPage() {
       return
     }
 
-    fetchTripData()
+    const loadData = async () => {
+      try {
+        await Promise.all([fetchTripData(), fetchPreferences()])
+      } catch (error) {
+        console.error('Error loading data:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadData()
   }, [router, tripId])
 
   const fetchTripData = async () => {
@@ -94,8 +109,27 @@ export default function PreferencesPage() {
       setTrip(response)
     } catch (error) {
       toast.error('Failed to fetch trip data')
-    } finally {
-      setIsLoading(false)
+    }
+  }
+
+  const fetchPreferences = async () => {
+    try {
+      const response = await preferencesAPI.getPreferences(tripId as string)
+      // Find the detailed preference for the current user
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+      const myPreference = response.find(
+        (p: any) => p.user_id === currentUser.id && p.preference_type === 'detailed'
+      )
+
+      if (myPreference && myPreference.preference_data) {
+        setPreferences(prev => ({
+          ...prev,
+          ...myPreference.preference_data
+        }))
+      }
+    } catch (error) {
+      console.error('Failed to fetch preferences:', error)
+      // Don't show error toast here as it might be 404 if no preferences yet
     }
   }
 
@@ -195,7 +229,7 @@ export default function PreferencesPage() {
         {/* Progress Steps */}
         <div className="bg-white border-b">
           <div className="px-4 sm:px-6 lg:px-8 py-6">
-            <div className="flex items-center justify-between max-w-4xl mx-auto">
+            <div className="flex items-center justify-between max-w-4xl mx-auto overflow-x-auto">
               {steps.map((step, index) => {
                 const Icon = step.icon
                 const isActive = index === currentStep
@@ -204,24 +238,24 @@ export default function PreferencesPage() {
                 return (
                   <div
                     key={index}
-                    className="flex items-center"
+                    className="flex items-center min-w-fit px-2"
                   >
                     <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-colors ${isActive
-                      ? 'border-primary bg-primary text-white'
-                      : isCompleted
-                        ? 'border-green-500 bg-green-500 text-white'
-                        : 'border-gray-300 text-gray-400'
+                        ? 'border-primary bg-primary text-white'
+                        : isCompleted
+                          ? 'border-green-500 bg-green-500 text-white'
+                          : 'border-gray-300 text-gray-400'
                       }`}>
                       <Icon className="w-5 h-5" />
                     </div>
-                    <div className="ml-3">
+                    <div className="ml-3 hidden sm:block">
                       <p className={`text-sm font-medium ${isActive ? 'text-primary' : isCompleted ? 'text-green-600' : 'text-gray-500'
                         }`}>
                         {step.title}
                       </p>
                     </div>
                     {index < steps.length - 1 && (
-                      <div className={`mx-8 h-0.5 w-16 transition-colors ${isCompleted ? 'bg-green-500' : 'bg-gray-300'
+                      <div className={`mx-4 h-0.5 w-8 sm:w-16 transition-colors ${isCompleted ? 'bg-green-500' : 'bg-gray-300'
                         }`}></div>
                     )}
                   </div>
@@ -252,8 +286,28 @@ export default function PreferencesPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Step 0: Accommodation */}
+                  {/* Step 0: Description */}
                   {currentStep === 0 && (
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                          Describe your ideal trip
+                        </label>
+                        <p className="text-sm text-gray-500 mb-3">
+                          Tell us anything specific you'd like to do, see, or experience. For example: "I want to visit Prague and drink beer", "I want a relaxing beach vacation in Bali", etc.
+                        </p>
+                        <Textarea
+                          value={preferences.trip_description}
+                          onChange={(e) => handleInputChange('trip_description', e.target.value)}
+                          placeholder="e.g., I really want to visit the Colosseum and eat authentic pasta..."
+                          className="min-h-[150px]"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Step 1: Accommodation */}
+                  {currentStep === 1 && (
                     <div className="space-y-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -312,8 +366,8 @@ export default function PreferencesPage() {
                     </div>
                   )}
 
-                  {/* Step 1: Transportation */}
-                  {currentStep === 1 && (
+                  {/* Step 2: Transportation */}
+                  {currentStep === 2 && (
                     <div className="space-y-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -346,8 +400,8 @@ export default function PreferencesPage() {
                     </div>
                   )}
 
-                  {/* Step 2: Activities */}
-                  {currentStep === 2 && (
+                  {/* Step 3: Activities */}
+                  {currentStep === 3 && (
                     <div className="space-y-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -408,8 +462,8 @@ export default function PreferencesPage() {
                     </div>
                   )}
 
-                  {/* Step 3: Budget */}
-                  {currentStep === 3 && (
+                  {/* Step 4: Budget */}
+                  {currentStep === 4 && (
                     <div className="space-y-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -451,8 +505,8 @@ export default function PreferencesPage() {
                     </div>
                   )}
 
-                  {/* Step 4: Dietary */}
-                  {currentStep === 4 && (
+                  {/* Step 5: Dietary */}
+                  {currentStep === 5 && (
                     <div className="space-y-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -484,8 +538,8 @@ export default function PreferencesPage() {
                     </div>
                   )}
 
-                  {/* Step 5: Group Size */}
-                  {currentStep === 5 && (
+                  {/* Step 6: Group Size */}
+                  {currentStep === 6 && (
                     <div className="space-y-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-3">

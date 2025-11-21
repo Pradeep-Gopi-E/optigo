@@ -328,6 +328,9 @@ async def complete_survey(
                 detail="Access denied to this trip"
             )
 
+        logger.info(f"Received survey completion request for trip {trip_id} from user {current_user.id}")
+        logger.info(f"Survey data keys: {survey_data.model_dump().keys()}")
+
         created_preferences = []
 
         # Process each preference type
@@ -337,7 +340,8 @@ async def complete_survey(
             "activities": survey_data.activities,
             "accommodation": survey_data.accommodation,
             "transportation": survey_data.transportation,
-            "vibe": survey_data.vibe
+            "vibe": survey_data.vibe,
+            "detailed": survey_data.detailed
         }
 
         for pref_type_str, pref_data in preference_mappings.items():

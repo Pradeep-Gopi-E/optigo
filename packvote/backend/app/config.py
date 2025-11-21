@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
     # AI Service
     GOOGLE_AI_API_KEY: Optional[str] = None
-    GEMINI_MODEL: str = "gemini-1.5-flash"
+    GEMINI_MODEL: str = "gemini-2.0-flash"
 
     # Telegram Bot
     TELEGRAM_BOT_TOKEN: Optional[str] = None

@@ -23,6 +23,8 @@ export interface Trip {
   end_date?: string | null;
   budget_min?: number | null;
   budget_max?: number | null;
+  expected_participants?: number | null;
+  invite_code?: string | null;
   status: string;
   created_by: string;
   created_at: string;

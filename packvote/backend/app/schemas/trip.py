@@ -21,6 +21,7 @@ class TripCreate(BaseModel):
     end_date: Optional[datetime] = None
     budget_min: Optional[float] = Field(None, ge=0)
     budget_max: Optional[float] = Field(None, ge=0)
+    expected_participants: Optional[int] = Field(None, ge=1, le=100)
 
 
 class TripUpdate(BaseModel):
@@ -31,6 +32,7 @@ class TripUpdate(BaseModel):
     end_date: Optional[datetime] = None
     budget_min: Optional[float] = Field(None, ge=0)
     budget_max: Optional[float] = Field(None, ge=0)
+    expected_participants: Optional[int] = Field(None, ge=1, le=100)
     status: Optional[TripStatus] = None
 
 
@@ -43,6 +45,8 @@ class TripResponse(BaseModel):
     end_date: Optional[datetime] = None
     budget_min: Optional[float] = None
     budget_max: Optional[float] = None
+    expected_participants: Optional[int] = None
+    invite_code: Optional[str] = None
     status: TripStatus
     created_by: str
     created_at: Optional[datetime] = None
@@ -63,3 +67,9 @@ class TripDetailResponse(TripResponse):
 class InviteRequest(BaseModel):
     emails: List[str] = Field(..., min_items=1)
     message: Optional[str] = None
+
+
+class JoinTripResponse(BaseModel):
+    message: str
+    trip_id: str
+    trip_title: str

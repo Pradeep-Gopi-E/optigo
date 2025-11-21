@@ -17,6 +17,7 @@ class PreferenceType(enum.Enum):
     accommodation = "accommodation"
     transportation = "transportation"
     vibe = "vibe"
+    detailed = "detailed"
 
 
 class Preference(Base):

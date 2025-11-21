@@ -17,6 +17,7 @@ interface TripFormData {
   end_date: string | null
   budget_min: number | null
   budget_max: number | null
+  expected_participants: number | null
 }
 
 export default function CreateTripPage() {
@@ -45,6 +46,7 @@ export default function CreateTripPage() {
         end_date: data.end_date || null,
         budget_min: data.budget_min || null,
         budget_max: data.budget_max || null,
+        expected_participants: data.expected_participants || null,
       }
 
       const response = await tripsAPI.createTrip(tripData)
@@ -155,6 +157,28 @@ export default function CreateTripPage() {
                     className="input w-full"
                     placeholder="Paris, France"
                   />
+                </div>
+
+                {/* Expected Participants */}
+                <div>
+                  <label htmlFor="expected_participants" className="block text-sm font-medium text-gray-700 mb-2">
+                    Expected Number of Participants
+                  </label>
+                  <input
+                    {...register('expected_participants', {
+                      min: { value: 1, message: 'Must have at least 1 participant' },
+                      max: { value: 100, message: 'Maximum 100 participants' },
+                      valueAsNumber: true,
+                    })}
+                    type="number"
+                    id="expected_participants"
+                    className="input w-full"
+                    placeholder="5"
+                  />
+                  {errors.expected_participants && (
+                    <p className="mt-1 text-sm text-red-600">{errors.expected_participants.message}</p>
+                  )}
+                  <p className="mt-1 text-sm text-gray-500">Helps AI generate better recommendations for your group size</p>
                 </div>
               </div>
             </div>

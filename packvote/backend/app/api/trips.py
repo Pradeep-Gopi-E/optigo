@@ -3,8 +3,9 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
 import uuid
+import secrets
 
-from ..schemas.trip import TripCreate, TripUpdate, TripResponse, TripDetailResponse, InviteRequest
+from ..schemas.trip import TripCreate, TripUpdate, TripResponse, TripDetailResponse, InviteRequest, JoinTripResponse
 from ..schemas.participant import ParticipantResponse, ParticipantRole, ParticipantStatus
 from ..services.auth import AuthService
 # This line is changed:
@@ -53,6 +54,8 @@ async def get_user_trips(
                 end_date=trip.end_date,
                 budget_min=float(trip.budget_min) if trip.budget_min else None,
                 budget_max=float(trip.budget_max) if trip.budget_max else None,
+                expected_participants=trip.expected_participants,
+                invite_code=trip.invite_code,
                 status=trip.status.value,
                 created_by=str(trip.created_by),
                 created_at=trip.created_at,
@@ -95,6 +98,9 @@ async def create_trip(
                     detail="Minimum budget must be less than maximum budget"
                 )
 
+        # Generate unique invite code
+        invite_code = secrets.token_urlsafe(12)
+        
         # Create trip
         new_trip = Trip(
             title=trip_data.title,
@@ -104,6 +110,8 @@ async def create_trip(
             end_date=trip_data.end_date,
             budget_min=trip_data.budget_min,
             budget_max=trip_data.budget_max,
+            expected_participants=trip_data.expected_participants,
+            invite_code=invite_code,
             created_by=str(current_user.id)
         )
 
@@ -131,6 +139,8 @@ async def create_trip(
             end_date=new_trip.end_date,
             budget_min=float(new_trip.budget_min) if new_trip.budget_min else None,
             budget_max=float(new_trip.budget_max) if new_trip.budget_max else None,
+            expected_participants=new_trip.expected_participants,
+            invite_code=new_trip.invite_code,
             status=new_trip.status.value,
             created_by=str(new_trip.created_by),
             created_at=new_trip.created_at,
@@ -214,6 +224,8 @@ async def get_trip(
             end_date=trip.end_date,
             budget_min=float(trip.budget_min) if trip.budget_min else None,
             budget_max=float(trip.budget_max) if trip.budget_max else None,
+            expected_participants=trip.expected_participants,
+            invite_code=trip.invite_code,
             status=trip.status.value,
             created_by=str(trip.created_by),
             created_at=trip.created_at,
@@ -307,6 +319,8 @@ async def update_trip(
             end_date=trip.end_date,
             budget_min=float(trip.budget_min) if trip.budget_min else None,
             budget_max=float(trip.budget_max) if trip.budget_max else None,
+            expected_participants=trip.expected_participants,
+            invite_code=trip.invite_code,
             status=trip.status.value,
             created_by=str(trip.created_by),
             created_at=trip.created_at,

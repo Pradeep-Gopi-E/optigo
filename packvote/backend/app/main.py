@@ -81,15 +81,12 @@ async def root():
         "version": settings.APP_VERSION,
         "docs_url": "/docs" if settings.DEBUG else None
     }
-
-
-# Create database tables
 # Create database tables
 @app.on_event("startup")
 async def startup_event():
     """Application startup event"""
     try:
-        #Base.metadata.drop_all(bind=engine)
+        #Base.metadata.drop_all(bind=engine) # Temporarily enabled to fix schema
         Base.metadata.create_all(bind=engine)
         logger.info("Database tables recreated successfully")
     except Exception as e:
