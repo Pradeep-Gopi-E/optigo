@@ -84,11 +84,21 @@ class AIService:
 
             # Build prompt and call Gemini
             prompt = self._build_ai_prompt(trip, preferences)
-            self._log_debug(f"AI Prompt: {prompt}")
+            
+            self._log_debug("\n" + "="*50)
+            self._log_debug(f"SENDING REQUEST TO GEMINI ({settings.GEMINI_MODEL})")
+            self._log_debug("="*50)
+            self._log_debug(f"FULL PROMPT:\n{prompt}")
+            self._log_debug("="*50)
 
             response = self.model.generate_content(prompt)
             ai_response_text = response.text
-            self._log_debug(f"AI Response: {ai_response_text}")
+            
+            self._log_debug("\n" + "="*50)
+            self._log_debug("RECEIVED RESPONSE FROM GEMINI")
+            self._log_debug("="*50)
+            self._log_debug(f"RAW RESPONSE:\n{ai_response_text}")
+            self._log_debug("="*50)
 
             # Extract JSON
             json_start = ai_response_text.find('{')
