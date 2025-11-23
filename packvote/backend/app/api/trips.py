@@ -8,9 +8,7 @@ import secrets
 from ..schemas.trip import TripCreate, TripUpdate, TripResponse, TripDetailResponse, InviteRequest, JoinTripResponse
 from ..schemas.participant import ParticipantResponse, ParticipantRole, ParticipantStatus
 from ..services.auth import AuthService
-# This line is changed:
 from ..models import Trip, Participant, User
-# This line is added to import enums from their specific file:
 from ..models.participant import ParticipantRole as ParticipantRoleModel, ParticipantStatus as ParticipantStatusModel
 from ..utils.database import get_db
 from ..api.auth import get_current_user
@@ -57,6 +55,7 @@ async def get_user_trips(
                 expected_participants=trip.expected_participants,
                 invite_code=trip.invite_code,
                 status=trip.status.value,
+                allow_member_recommendations=trip.allow_member_recommendations,
                 created_by=str(trip.created_by),
                 created_at=trip.created_at,
                 updated_at=trip.updated_at,
@@ -112,6 +111,7 @@ async def create_trip(
             budget_max=trip_data.budget_max,
             expected_participants=trip_data.expected_participants,
             invite_code=invite_code,
+            allow_member_recommendations=trip_data.allow_member_recommendations,
             created_by=str(current_user.id)
         )
 
@@ -142,6 +142,7 @@ async def create_trip(
             expected_participants=new_trip.expected_participants,
             invite_code=new_trip.invite_code,
             status=new_trip.status.value,
+            allow_member_recommendations=new_trip.allow_member_recommendations,
             created_by=str(new_trip.created_by),
             created_at=new_trip.created_at,
             updated_at=new_trip.updated_at,
@@ -227,6 +228,7 @@ async def get_trip(
             expected_participants=trip.expected_participants,
             invite_code=trip.invite_code,
             status=trip.status.value,
+            allow_member_recommendations=trip.allow_member_recommendations,
             created_by=str(trip.created_by),
             created_at=trip.created_at,
             updated_at=trip.updated_at,
@@ -322,6 +324,7 @@ async def update_trip(
             expected_participants=trip.expected_participants,
             invite_code=trip.invite_code,
             status=trip.status.value,
+            allow_member_recommendations=trip.allow_member_recommendations,
             created_by=str(trip.created_by),
             created_at=trip.created_at,
             updated_at=trip.updated_at,
@@ -434,6 +437,84 @@ async def get_trip_participants(
     except Exception as e:
         logger.error(f"Error getting trip participants: {str(e)}")
         raise HTTPException(
-            status_de=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve trip participants"
+        )
+
+
+@router.delete("/{trip_id}/participants/{participant_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_participant(
+    trip_id: str,
+    participant_id: str,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Remove a participant from a trip (or leave trip)"""
+    try:
+        # Validate UUIDs
+        try:
+            uuid.UUID(trip_id)
+            uuid.UUID(participant_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Invalid ID format"
+            )
+
+        # Get participant
+        participant = db.query(Participant).filter(
+            Participant.id == participant_id,
+            Participant.trip_id == trip_id
+        ).first()
+
+        if not participant:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Participant not found"
+            )
+
+        # Get trip
+        trip = db.query(Trip).filter(Trip.id == trip_id).first()
+        if not trip:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Trip not found"
+            )
+
+        # Check permissions
+        is_owner = str(trip.created_by) == str(current_user.id)
+        is_self = str(participant.user_id) == str(current_user.id)
+
+        if not (is_owner or is_self):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only remove yourself or participants from your own trips"
+            )
+
+        # If owner is leaving, we might want to warn or handle ownership transfer
+        # For now, we allow it as requested, but log it.
+        if is_owner and is_self:
+            logger.warning(f"Owner {current_user.id} is leaving trip {trip_id}")
+
+        # Remove participant
+        db.delete(participant)
+        
+        # Also remove their votes
+        db.query(Vote).filter(
+            Vote.trip_id == trip_id,
+            Vote.user_id == participant.user_id
+        ).delete()
+
+        db.commit()
+        
+        return
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing participant: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to remove participant"
         )

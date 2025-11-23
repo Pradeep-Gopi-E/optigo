@@ -5,7 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Custom instant-runoff voting implementation
+# Borda Count Voting Implementation
 class Candidate:
     def __init__(self, id: str, destination_name: str, description: str = ""):
         self.id = id
@@ -25,131 +25,72 @@ class Ballot:
     def __repr__(self):
         return f"Ballot(ranking={self.ranking})"
 
-class ElectionRound(NamedTuple):
-    round_number: int
-    vote_counts: Dict[str, int]  # candidate_id -> votes
-    eliminated_candidate: Optional[str] = None
-    winner: Optional[str] = None
-    total_votes: int = 0
-    active_candidates: List[str] = []
-
-class VotingResult:
-    def __init__(self, winner: Optional[Candidate], rounds: List[ElectionRound]):
-        self.winner = winner
-        self.rounds = rounds
-
-def instant_runoff_voting(candidates: List[Candidate], ballots: List[Ballot]) -> Tuple[Optional[Candidate], List[ElectionRound]]:
+def calculate_borda_count(candidates: List[Candidate], ballots: List[Ballot]) -> Tuple[Optional[Candidate], Dict[str, int]]:
     """
-    Implement instant-runoff voting algorithm
-
+    Implement Borda Count voting algorithm
+    
+    Points assignment:
+    - If there are N candidates:
+    - 1st choice gets N points
+    - 2nd choice gets N-1 points
+    - ...
+    - Last choice gets 1 point
+    - Unranked candidates get 0 points
+    
     Args:
         candidates: List of candidates
         ballots: List of ballots with ranked preferences
 
     Returns:
-        Tuple of (winner, list of election rounds)
+        Tuple of (winner, scores_dict)
     """
     if not candidates or not ballots:
-        return None, []
+        return None, {}
 
-    candidate_ids = {c.id for c in candidates}
     candidate_map = {c.id: c for c in candidates}
-    active_candidates = candidate_ids.copy()
-    rounds = []
-    round_num = 1
+    scores = {c.id: 0 for c in candidates}
+    n_candidates = len(candidates)
 
-    while len(active_candidates) > 1:
-        # Count votes for current round
-        vote_counts = {candidate_id: 0 for candidate_id in active_candidates}
-        valid_ballots = 0
+    for ballot in ballots:
+        # Calculate points for this ballot
+        # We only give points for ranked candidates
+        # If a user only ranks top 3 out of 10, they give N, N-1, N-2 points respectively
+        
+        for i, candidate_id in enumerate(ballot.ranking):
+            if candidate_id in scores:
+                points = n_candidates - i
+                if points > 0:
+                    scores[candidate_id] += points
 
-        for ballot in ballots:
-            # Find the highest-ranked active candidate on this ballot
-            for candidate_id in ballot.ranking:
-                if candidate_id in active_candidates:
-                    vote_counts[candidate_id] += 1
-                    valid_ballots += 1
-                    break
-
-        # Calculate total votes in this round
-        total_votes = sum(vote_counts.values())
-
-        # Check for majority winner
-        for candidate_id, votes in vote_counts.items():
-            if votes > total_votes / 2:
-                winner = candidate_map[candidate_id]
-                election_round = ElectionRound(
-                    round_number=round_num,
-                    vote_counts=vote_counts,
-                    winner=candidate_id,
-                    total_votes=total_votes,
-                    active_candidates=list(active_candidates)
-                )
-                rounds.append(election_round)
-                return winner, rounds
-
-        # Find candidate to eliminate (fewest votes)
-        min_votes = min(vote_counts.values())
-        candidates_to_eliminate = [
-            candidate_id for candidate_id, votes in vote_counts.items()
-            if votes == min_votes
-        ]
-
-        # In case of tie for elimination, eliminate first one
-        eliminated_candidate = candidates_to_eliminate[0]
-        active_candidates.remove(eliminated_candidate)
-
-        # Record this round
-        election_round = ElectionRound(
-            round_number=round_num,
-            vote_counts=vote_counts,
-            eliminated_candidate=eliminated_candidate,
-            total_votes=total_votes,
-            active_candidates=list(active_candidates) + [eliminated_candidate]
-        )
-        rounds.append(election_round)
-
-        round_num += 1
-
-        # Safety check to prevent infinite loop
-        if round_num > len(candidates):
-            break
-
-    # If we get here, either we have a winner or all remaining candidates are tied
-    if active_candidates:
-        winner = candidate_map[next(iter(active_candidates))]
-    else:
-        winner = None
-
-    # Record final round if needed
-    if rounds and rounds[-1].winner is None:
-        final_round = ElectionRound(
-            round_number=round_num,
-            vote_counts=rounds[-1].vote_counts,
-            winner=next(iter(active_candidates)) if active_candidates else None,
-            total_votes=rounds[-1].total_votes,
-            active_candidates=active_candidates
-        )
-        rounds.append(final_round)
-
-    return winner, rounds
+    # Find winner (highest score)
+    if not scores:
+        return None, {}
+        
+    # Sort scores descending
+    sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    
+    # Get winner ID
+    winner_id = sorted_scores[0][0]
+    winner = candidate_map.get(winner_id)
+    
+    return winner, scores
 
 
 class VotingService:
-    """Service for handling ranked-choice voting using instant-runoff algorithm"""
+    """Service for handling ranked-choice voting using Borda Count algorithm"""
 
     def __init__(self, db: Session):
         self.db = db
 
     def calculate_results(self, trip_id: str) -> Dict:
         """
-        Calculate instant-runoff voting results for a trip
+        Calculate Borda Count voting results for a trip
 
         Args:
             trip_id: UUID of the trip
 
         Returns:
-            Dict containing voting results with winner and elimination rounds
+            Dict containing voting results with winner and scores
         """
         try:
             # Get all votes for this trip
@@ -158,7 +99,7 @@ class VotingService:
             if not votes:
                 return {
                     "winner": None,
-                    "rounds": [],
+                    "scores": {},
                     "total_voters": 0,
                     "message": "No votes cast yet"
                 }
@@ -172,7 +113,7 @@ class VotingService:
             if not user_ballots:
                 return {
                     "winner": None,
-                    "rounds": [],
+                    "scores": {},
                     "total_voters": unique_voters,
                     "message": "No valid ballots found"
                 }
@@ -183,13 +124,13 @@ class VotingService:
             if not candidates:
                 return {
                     "winner": None,
-                    "rounds": [],
+                    "scores": {},
                     "total_voters": unique_voters,
                     "message": "No candidates available"
                 }
 
-            # Run instant-runoff voting
-            winner, rounds = instant_runoff_voting(candidates, user_ballots)
+            # Run Borda Count voting
+            winner, scores = calculate_borda_count(candidates, user_ballots)
 
             return {
                 "winner": {
@@ -197,7 +138,7 @@ class VotingService:
                     "destination_name": winner.destination_name,
                     "description": winner.description
                 } if winner else None,
-                "rounds": self._format_rounds(rounds),
+                "scores": scores,
                 "total_voters": unique_voters,
                 "total_candidates": len(candidates),
                 "candidates": [{"id": c.id, "name": c.destination_name} for c in candidates]
@@ -208,7 +149,7 @@ class VotingService:
             raise
 
     def _create_ballots(self, votes: List[Vote]) -> List[Ballot]:
-        """Convert votes to PyRankVote Ballot objects"""
+        """Convert votes to Ballot objects"""
         user_votes = {}
 
         # Group votes by user
@@ -248,35 +189,9 @@ class VotingService:
 
         return candidates
 
-    def _format_rounds(self, rounds: List[ElectionRound]) -> List[Dict]:
-        """Format voting rounds for JSON response"""
-        formatted_rounds = []
-
-        for round_data in rounds:
-            formatted_round = {
-                "round": round_data.round_number,
-                "vote_counts": round_data.vote_counts,
-                "eliminated": round_data.eliminated_candidate,
-                "winner": round_data.winner,
-                "total_votes": round_data.total_votes,
-                "active_candidates": round_data.active_candidates
-            }
-
-            formatted_rounds.append(formatted_round)
-
-        return formatted_rounds
-
     def validate_vote(self, user_id: str, trip_id: str, vote_data: List[Dict]) -> bool:
         """
         Validate that a vote is properly formatted and contains valid recommendations
-
-        Args:
-            user_id: UUID of the user voting
-            trip_id: UUID of the trip
-            vote_data: List of {recommendation_id, rank} dictionaries
-
-        Returns:
-            True if vote is valid, False otherwise
         """
         try:
             # Note: We allow re-voting (updates), so we don't check for existing votes here.
@@ -320,14 +235,6 @@ class VotingService:
     def cast_vote(self, user_id: str, trip_id: str, vote_data: List[Dict]) -> bool:
         """
         Cast a vote for a user in a trip
-
-        Args:
-            user_id: UUID of the user voting
-            trip_id: UUID of the trip
-            vote_data: List of {recommendation_id, rank} dictionaries
-
-        Returns:
-            True if vote was successfully cast, False otherwise
         """
         try:
             if not self.validate_vote(user_id, trip_id, vote_data):

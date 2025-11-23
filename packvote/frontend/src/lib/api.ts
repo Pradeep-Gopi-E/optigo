@@ -25,7 +25,8 @@ export interface Trip {
   budget_max?: number | null;
   expected_participants?: number | null;
   invite_code?: string | null;
-  status: string;
+  status: 'planning' | 'voting' | 'confirmed' | 'cancelled';
+  allow_member_recommendations: boolean;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -41,6 +42,7 @@ export interface Participant {
   joined_at?: string;
   user_name: string;
   user_email: string;
+  vote_status?: 'not_voted' | 'voted' | 'skipped';
 }
 
 export interface TripDetail extends Trip {
@@ -60,6 +62,8 @@ export interface Recommendation {
   created_at: string;
   vote_count?: number;
   rank_score?: number;
+  meta?: any;
+  weather_info?: string;
 }
 
 export interface Vote {
@@ -70,6 +74,7 @@ export interface Vote {
   rank: number;
   created_at?: string;
   destination_name?: string;
+  description?: string;
 }
 
 export interface VotingResult {
@@ -78,14 +83,7 @@ export interface VotingResult {
     destination_name: string;
     description: string;
   };
-  rounds: Array<{
-    round: number;
-    vote_counts: Record<string, number>;
-    eliminated?: string;
-    winner?: string;
-    total_votes: number;
-    active_candidates: string[];
-  }>;
+  scores: Record<string, number>;
   total_voters: number;
   total_candidates: number;
   candidates: Array<{ id: string; name: string }>;
@@ -103,14 +101,18 @@ export interface Preference {
   id: string;
   trip_id: string;
   user_id: string;
-  preferences_json: any;
+  preference_type: string;
+  preference_data: any;
   created_at: string;
   updated_at: string;
+  user_name?: string;
 }
 
 export interface SurveyResponse {
-  questions: any[];
-  answers?: any;
+  trip_id: string;
+  user_preferences: Preference[];
+  completion_status: Record<string, boolean>;
+  overall_complete: boolean;
 }
 
 // --- Helper Function ---
@@ -257,9 +259,9 @@ export const recommendationsAPI = {
     return response.data;
   },
 
-  generateRecommendations: async (tripId: string) => {
+  generateRecommendations: async (tripId: string, clearExisting: boolean = true) => {
     const headers = getAuthHeaders();
-    const response = await axios.post(`${API_BASE_URL}/trips/${tripId}/recommendations/generate`, {}, { headers });
+    const response = await axios.post(`${API_BASE_URL}/trips/${tripId}/recommendations/generate`, { clear_existing: clearExisting }, { headers });
     return response.data;
   },
 
@@ -336,7 +338,7 @@ export const preferencesAPI = {
     }
   },
 
-  savePreferences: async (tripId: string, preferences: any) => {
+  createPreference: async (tripId: string, preferences: any) => {
     const headers = getAuthHeaders();
     const response = await axios.post(`${API_BASE_URL}/trips/${tripId}/preferences`, preferences, { headers });
     return response.data;

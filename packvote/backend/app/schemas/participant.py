@@ -26,6 +26,7 @@ class ParticipantResponse(BaseModel):
     joined_at: Optional[datetime] = None
     user_name: Optional[str] = None
     user_email: Optional[str] = None
+    vote_status: Optional[str] = "not_voted"
 
     class Config:
         from_attributes = True

@@ -12,12 +12,9 @@ import {
   Clock,
   TrendingUp,
   CheckCircle,
-  XCircle,
-  DollarSign,
   RotateCcw
 } from 'lucide-react'
 import { tripsAPI, votesAPI, VotingResult, UserVoteSummary, TripDetail } from '@/lib/api'
-import { formatCurrency, formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -85,8 +82,6 @@ export default function ResultsPage() {
       toast.success('Votes reset successfully')
       // Reload data
       fetchData()
-      // Optionally redirect to voting page
-      // router.push(`/trips/${tripId}/vote`)
     } catch (error: any) {
       toast.error(error.response?.data?.detail || 'Failed to reset votes')
     } finally {
@@ -133,7 +128,7 @@ export default function ResultsPage() {
     )
   }
 
-  if (!results || !results.rounds || results.rounds.length === 0) {
+  if (!results || !results.scores || Object.keys(results.scores).length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center max-w-md">
@@ -175,7 +170,7 @@ export default function ResultsPage() {
                 <div>
                   <h1 className="text-xl font-semibold text-gray-900">Voting Results</h1>
                   <p className="text-sm text-gray-500">
-                    Instant-runoff voting results
+                    Borda Count voting results
                   </p>
                 </div>
               </div>
@@ -234,83 +229,53 @@ export default function ResultsPage() {
               </motion.div>
             )}
 
-            {/* Voting Rounds */}
+            {/* Leaderboard */}
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
                 <TrendingUp className="w-5 h-5 mr-2" />
-                Voting Rounds
+                Leaderboard (Borda Count)
               </h2>
-              <div className="grid gap-6 lg:grid-cols-2">
-                {results.rounds.map((round, index) => (
-                  <motion.div
-                    key={round.round}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.1 }}
-                  >
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center">
-                          Round {round.round}
-                          {round.eliminated && (
-                            <Badge variant="destructive" className="ml-2">
-                              1 Eliminated
-                            </Badge>
-                          )}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          {/* Remaining Options */}
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-700 mb-2">Votes Remaining:</h4>
-                            <div className="space-y-2">
-                              {Object.entries(round.vote_counts).map(([destinationId, votes]) => {
-                                const candidateName = results.candidates?.find(c => c.id === destinationId)?.name || 'Unknown Candidate';
-                                return (
-                                  <div key={destinationId} className="flex items-center justify-between">
-                                    <span className="text-sm text-gray-900 truncate max-w-[200px]" title={candidateName}>
-                                      {candidateName}
-                                    </span>
-                                    <div className="flex items-center">
-                                      <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                                        <div
-                                          className="bg-primary h-2 rounded-full"
-                                          style={{
-                                            width: `${(votes / Math.max(1, ...Object.values(round.vote_counts))) * 100}%`
-                                          }}
-                                        ></div>
-                                      </div>
-                                      <span className="text-sm font-medium">{votes}</span>
-                                    </div>
-                                  </div>
-                                )
-                              })}
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    {Object.entries(results.scores)
+                      .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
+                      .map(([candidateId, score], index) => {
+                        const candidate = results.candidates.find(c => c.id === candidateId);
+                        const maxScore = Math.max(...Object.values(results.scores));
+                        const percentage = (score / maxScore) * 100;
+
+                        return (
+                          <div key={candidateId} className="relative">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center">
+                                <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold mr-3 ${index === 0 ? 'bg-yellow-100 text-yellow-700' :
+                                    index === 1 ? 'bg-gray-100 text-gray-700' :
+                                      index === 2 ? 'bg-orange-100 text-orange-700' : 'bg-slate-50 text-slate-500'
+                                  }`}>
+                                  {index + 1}
+                                </span>
+                                <span className="font-medium text-gray-900">
+                                  {candidate?.name || 'Unknown Destination'}
+                                </span>
+                              </div>
+                              <span className="text-sm font-semibold text-gray-700">
+                                {score} pts
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-100 rounded-full h-2.5">
+                              <div
+                                className={`h-2.5 rounded-full ${index === 0 ? 'bg-yellow-500' : 'bg-primary'
+                                  }`}
+                                style={{ width: `${percentage}%` }}
+                              ></div>
                             </div>
                           </div>
-
-                          {/* Eliminated Options */}
-                          {round.eliminated && (
-                            <div>
-                              <h4 className="text-sm font-medium text-red-700 mb-2">Eliminated:</h4>
-                              <div className="flex flex-wrap gap-2">
-                                {(() => {
-                                  const eliminatedName = results.candidates?.find(c => c.id === round.eliminated)?.name || 'Unknown Candidate';
-                                  return (
-                                    <Badge key={round.eliminated} variant="destructive">
-                                      {eliminatedName}
-                                    </Badge>
-                                  );
-                                })()}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
+                        );
+                      })}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Voters */}

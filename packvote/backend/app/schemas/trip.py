@@ -22,6 +22,7 @@ class TripCreate(BaseModel):
     budget_min: Optional[float] = Field(None, ge=0)
     budget_max: Optional[float] = Field(None, ge=0)
     expected_participants: Optional[int] = Field(None, ge=1, le=100)
+    allow_member_recommendations: Optional[bool] = False
 
 
 class TripUpdate(BaseModel):
@@ -34,6 +35,7 @@ class TripUpdate(BaseModel):
     budget_max: Optional[float] = Field(None, ge=0)
     expected_participants: Optional[int] = Field(None, ge=1, le=100)
     status: Optional[TripStatus] = None
+    allow_member_recommendations: Optional[bool] = None
 
 
 class TripResponse(BaseModel):
@@ -48,6 +50,7 @@ class TripResponse(BaseModel):
     expected_participants: Optional[int] = None
     invite_code: Optional[str] = None
     status: TripStatus
+    allow_member_recommendations: bool
     created_by: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

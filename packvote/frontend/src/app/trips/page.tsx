@@ -168,50 +168,129 @@ export default function TripsPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: index * 0.1 }}
                 >
-                  <Card
-                    className="cursor-pointer hover:shadow-lg transition-shadow duration-200"
-                    onClick={() => router.push(`/trips/${trip.id}`)}
-                  >
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <CardTitle className="text-lg line-clamp-2">{trip.title}</CardTitle>
-                        <Badge variant="secondary" className={getStatusColor(trip.status)}>
-                          {getStatusIcon(trip.status)}
-                          <span className="ml-1 capitalize">{trip.status}</span>
-                        </Badge>
-                      </div>
-                      {trip.description && (
-                        <p className="text-sm text-gray-600 line-clamp-2">{trip.description}</p>
-                      )}
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {trip.destination && (
-                          <div className="flex items-center text-sm text-gray-600">
-                            <MapPin className="w-4 h-4 mr-2 text-gray-400" />
-                            {trip.destination}
-                          </div>
-                        )}
-                        <div className="flex items-center text-sm text-gray-600">
-                          <Users className="w-4 h-4 mr-2 text-gray-400" />
-                          {trip.participant_count} {trip.participant_count === 1 ? 'participant' : 'participants'}
+                  <Card className="h-full flex flex-col hover:shadow-lg transition-shadow duration-200">
+                    <div
+                      className="cursor-pointer flex-1"
+                      onClick={() => router.push(`/trips/${trip.id}`)}
+                    >
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <CardTitle className="text-lg line-clamp-2">{trip.title}</CardTitle>
+                          <Badge variant="secondary" className={getStatusColor(trip.status)}>
+                            {getStatusIcon(trip.status)}
+                            <span className="ml-1 capitalize">{trip.status}</span>
+                          </Badge>
                         </div>
-                        {trip.start_date && (
+                        {trip.description && (
+                          <p className="text-sm text-gray-600 line-clamp-2">{trip.description}</p>
+                        )}
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {trip.destination && (
+                            <div className="flex items-center text-sm text-gray-600">
+                              <MapPin className="w-4 h-4 mr-2 text-gray-400" />
+                              {trip.destination}
+                            </div>
+                          )}
                           <div className="flex items-center text-sm text-gray-600">
-                            <Calendar className="w-4 h-4 mr-2 text-gray-400" />
-                            {formatDate(trip.start_date)}
+                            <Users className="w-4 h-4 mr-2 text-gray-400" />
+                            {trip.participant_count} {trip.participant_count === 1 ? 'participant' : 'participants'}
                           </div>
-                        )}
-                        {trip.budget_min && trip.budget_max && (
-                          <div className="text-sm text-gray-600">
-                            <span>Budget: </span>
-                            <span className="font-medium">
-                              {formatCurrency(trip.budget_min)} - {formatCurrency(trip.budget_max)}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
+                          {trip.start_date && (
+                            <div className="flex items-center text-sm text-gray-600">
+                              <Calendar className="w-4 h-4 mr-2 text-gray-400" />
+                              {formatDate(trip.start_date)}
+                            </div>
+                          )}
+                          {trip.budget_min && trip.budget_max && (
+                            <div className="text-sm text-gray-600">
+                              <span>Budget: </span>
+                              <span className="font-medium">
+                                {formatCurrency(trip.budget_min)} - {formatCurrency(trip.budget_max)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </div>
+                    <div className="px-6 pb-4 pt-0 mt-auto flex justify-end border-t pt-4">
+                      {trip.created_by === user?.id ? (
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (!confirm('Are you sure you want to delete this trip? This cannot be undone.')) return;
+                              try {
+                                await tripsAPI.deleteTrip(trip.id);
+                                toast.success('Trip deleted');
+                                fetchTrips();
+                              } catch (error) {
+                                toast.error('Failed to delete trip');
+                              }
+                            }}
+                          >
+                            Delete
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (!confirm('Are you sure you want to leave this trip? Since you are the owner, the trip might be left without an admin.')) return;
+                              try {
+                                // For owner leaving, we use removeParticipant with their own ID
+                                // First we need to find their participant ID. 
+                                // Since we don't have it in the list view, we might need to fetch it or use a special endpoint.
+                                // But removeParticipant needs participantId.
+                                // Let's fetch participants first.
+                                const participants = await tripsAPI.getParticipants(trip.id);
+                                const myParticipant = participants.find(p => p.user_id === user.id);
+                                if (myParticipant) {
+                                  await tripsAPI.removeParticipant(trip.id, myParticipant.id);
+                                  toast.success('You left the trip');
+                                  fetchTrips();
+                                } else {
+                                  toast.error('Could not find your participant record');
+                                }
+                              } catch (error) {
+                                toast.error('Failed to leave trip');
+                              }
+                            }}
+                          >
+                            Leave
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!confirm('Are you sure you want to leave this trip?')) return;
+                            try {
+                              const participants = await tripsAPI.getParticipants(trip.id);
+                              const myParticipant = participants.find(p => p.user_id === user.id);
+                              if (myParticipant) {
+                                await tripsAPI.removeParticipant(trip.id, myParticipant.id);
+                                toast.success('You left the trip');
+                                fetchTrips();
+                              } else {
+                                toast.error('Could not find your participant record');
+                              }
+                            } catch (error) {
+                              toast.error('Failed to leave trip');
+                            }
+                          }}
+                        >
+                          Leave Trip
+                        </Button>
+                      )}
+                    </div>
                   </Card>
                 </motion.div>
               ))}

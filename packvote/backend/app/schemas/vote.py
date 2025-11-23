@@ -32,7 +32,7 @@ class UserVoteSummary(BaseModel):
 
 class VotingResult(BaseModel):
     winner: Optional[Dict[str, Any]] = None
-    rounds: List[Dict[str, Any]]
+    scores: Dict[str, int] # candidate_id -> total score
     total_voters: int
     total_candidates: int
     candidates: List[Dict[str, str]] # id -> name mapping

@@ -6,6 +6,7 @@ import uuid
 from ..schemas.recommendation import RecommendationCreate, RecommendationResponse, GenerateRecommendationsResponse
 from ..services.auth import AuthService
 from ..services.ai_service import AIService
+from ..services.voting import VotingService
 from ..models import Recommendation, Trip
 from ..utils.database import get_db
 from ..api.auth import get_current_user
@@ -85,6 +86,7 @@ async def get_trip_recommendations(
 @router.post("/generate", response_model=GenerateRecommendationsResponse)
 async def generate_ai_recommendations(
     trip_id: str,
+    clear_existing: bool = True,
     current_user = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -121,6 +123,14 @@ async def generate_ai_recommendations(
                 detail="Access denied to this trip"
             )
 
+        # Clear existing AI recommendations if requested
+        if clear_existing:
+            db.query(Recommendation).filter(
+                Recommendation.trip_id == trip_id,
+                Recommendation.ai_generated == True
+            ).delete()
+            db.commit()
+
         # Generate AI recommendations
         ai_service = AIService(db)
         created_recommendations = ai_service.generate_recommendations(trip_id)
@@ -134,8 +144,12 @@ async def generate_ai_recommendations(
                 ai_service_available=ai_service_available
             )
 
+        # Reset voting session since new recommendations are available
+        voting_service = VotingService(db)
+        voting_service.reset_votes(trip_id)
+
         return GenerateRecommendationsResponse(
-            message=f"Successfully generated {len(created_recommendations)} recommendations",
+            message=f"Successfully generated {len(created_recommendations)} recommendations. Voting session has been reset.",
             recommendations_generated=len(created_recommendations),
             ai_service_available=ai_service_available
         )
@@ -176,11 +190,13 @@ async def create_custom_recommendation(
                 detail="Trip not found"
             )
 
-        # Only trip owners can create recommendations
-        if str(trip.created_by) != str(current_user.id):
+        # Check permissions
+        is_owner = str(trip.created_by) == str(current_user.id)
+        
+        if not is_owner and not trip.allow_member_recommendations:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only trip owners can create recommendations"
+                detail="Only trip owners can create recommendations for this trip"
             )
 
         # Check access

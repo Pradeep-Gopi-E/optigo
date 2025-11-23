@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Text, Numeric, Enum, ForeignKey, Integer
+from sqlalchemy import Column, String, DateTime, Text, Numeric, Enum, ForeignKey, Integer, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -27,8 +27,9 @@ class Trip(Base):
     budget_min = Column(Numeric(10, 2), nullable=True)
     budget_max = Column(Numeric(10, 2), nullable=True)
     expected_participants = Column(Integer, nullable=True)
-    invite_code = Column(String(50), unique=True, nullable=True)
-    status = Column(Enum(TripStatus), default=TripStatus.planning)
+    invite_code = Column(String(20), unique=True, nullable=True, index=True)
+    status = Column(Enum(TripStatus), default=TripStatus.planning, nullable=False)
+    allow_member_recommendations = Column(Boolean, default=False)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
