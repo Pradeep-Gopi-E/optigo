@@ -108,6 +108,14 @@ async def cast_votes(
                 detail="Access denied to this trip"
             )
 
+        # Check if voting is closed
+        trip = db.query(Trip).filter(Trip.id == trip_id).first()
+        if trip and trip.status.value == "confirmed":
+             raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Voting is closed for this trip"
+            )
+
         # Validate vote data format
         vote_list = []
         for vote_item in vote_data.votes:
@@ -129,6 +137,9 @@ async def cast_votes(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Failed to cast vote. Please check your vote data."
             )
+        
+        # Check for voting completion
+        voting_service.check_voting_completion(trip_id)
 
         # Return updated votes for this user
         user_votes = db.query(Vote, Recommendation).join(
@@ -163,6 +174,156 @@ async def cast_votes(
         )
 
 
+@router.post("/skip", status_code=status.HTTP_204_NO_CONTENT)
+async def skip_vote(
+    trip_id: str,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Skip voting for this trip"""
+    try:
+        # Validate UUID
+        try:
+            uuid.UUID(trip_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Trip not found"
+            )
+
+        # Check access
+        if not validate_access(trip_id, current_user, db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied to this trip"
+            )
+
+        # Check if voting is closed
+        trip = db.query(Trip).filter(Trip.id == trip_id).first()
+        if trip and trip.status.value == "confirmed":
+             raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Voting is closed for this trip"
+            )
+
+        voting_service = VotingService(db)
+        success = voting_service.skip_vote(str(current_user.id), trip_id)
+
+        if not success:
+             raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to skip vote"
+            )
+        
+        # Check for voting completion
+        voting_service.check_voting_completion(trip_id)
+
+        return
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error skipping vote: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to skip vote"
+        )
+
+
+@router.post("/reset", status_code=status.HTTP_204_NO_CONTENT)
+async def reset_votes(
+    trip_id: str,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Reset all votes for this trip (Owner only)"""
+    try:
+        # Validate UUID
+        try:
+            uuid.UUID(trip_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Trip not found"
+            )
+
+        # Check access - MUST be owner
+        auth_service = AuthService(db)
+        if not auth_service.check_trip_access(current_user, trip_id, "owner"):
+             raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only trip owner can reset votes"
+            )
+
+        voting_service = VotingService(db)
+        success = voting_service.reset_votes(trip_id)
+
+        if not success:
+             raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to reset votes"
+            )
+
+        return
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error resetting votes: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to reset votes"
+        )
+
+
+@router.post("/finalize", response_model=VotingResult)
+async def finalize_voting(
+    trip_id: str,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Finalize voting and generate results (Owner only)"""
+    try:
+        # Validate UUID
+        try:
+            uuid.UUID(trip_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Trip not found"
+            )
+
+        # Check access - MUST be owner
+        auth_service = AuthService(db)
+        if not auth_service.check_trip_access(current_user, trip_id, "owner"):
+             raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only trip owner can finalize voting"
+            )
+
+        voting_service = VotingService(db)
+        
+        # Check if voting is complete
+        if not voting_service.check_voting_completion(trip_id):
+             raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot finalize voting until all participants have voted or skipped"
+            )
+
+        results = voting_service.finalize_voting(trip_id)
+
+        return VotingResult(**results)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error finalizing voting: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to finalize voting"
+        )
+
+
 @router.get("/results", response_model=VotingResult)
 async def get_voting_results(
     trip_id: str,
@@ -186,6 +347,33 @@ async def get_voting_results(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied to this trip"
             )
+
+        # Check if results are available (trip is confirmed) OR user is owner
+        trip = db.query(Trip).filter(Trip.id == trip_id).first()
+        if not trip:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Trip not found"
+            )
+
+        is_owner = str(trip.created_by) == str(current_user.id)
+        
+        # If not decided yet, check restrictions
+        if trip.status.value != "confirmed":
+            # If owner, only allow if voting is complete (all participants voted)
+            if is_owner:
+                voting_service = VotingService(db)
+                if not voting_service.check_voting_completion(trip_id):
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Voting results are not available until all participants have voted"
+                    )
+            # If not owner, deny access
+            else:
+                 raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Voting results are not yet finalized"
+                )
 
         # Calculate results using voting service
         voting_service = VotingService(db)
@@ -300,7 +488,9 @@ async def get_voting_summary(
                 Vote.user_id == str(user.id)
             ).count()
 
-            has_voted = vote_count > 0
+            # Check if they skipped
+            has_skipped = participant.vote_status == "skipped"
+            has_voted = vote_count > 0 or has_skipped
 
             vote_summary = UserVoteSummary(
                 user_id=str(user.id),
@@ -346,11 +536,28 @@ async def withdraw_votes(
                 detail="Access denied to this trip"
             )
 
+        # Check if voting is closed
+        trip = db.query(Trip).filter(Trip.id == trip_id).first()
+        if trip and trip.status.value == "confirmed":
+             raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Voting is closed for this trip"
+            )
+
         # Delete user's votes
         deleted_count = db.query(Vote).filter(
             Vote.trip_id == trip_id,
             Vote.user_id == str(current_user.id)
         ).delete()
+
+        # Reset participant status
+        participant = db.query(Participant).filter(
+            Participant.trip_id == trip_id,
+            Participant.user_id == current_user.id
+        ).first()
+        
+        if participant:
+            participant.vote_status = "not_voted"
 
         db.commit()
         logger.info(f"User {current_user.id} withdrew {deleted_count} votes from trip {trip_id}")

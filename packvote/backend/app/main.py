@@ -60,12 +60,7 @@ async def global_exception_handler(request, exc):
         content={"detail": "Internal server error", "message": "An unexpected error occurred"}
     )
 
-    return {
-        "status": "healthy",
-        "app_name": settings.APP_NAME,
-        "version": settings.APP_VERSION,
-        "environment": "development" if settings.DEBUG else "production"
-    }
+
 
 
 # Root endpoint

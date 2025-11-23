@@ -13,9 +13,10 @@ import {
   TrendingUp,
   CheckCircle,
   XCircle,
-  DollarSign
+  DollarSign,
+  RotateCcw
 } from 'lucide-react'
-import { tripsAPI, votesAPI, VotingResult, UserVoteSummary } from '@/lib/api'
+import { tripsAPI, votesAPI, VotingResult, UserVoteSummary, TripDetail } from '@/lib/api'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -29,7 +30,10 @@ export default function ResultsPage() {
   const [user, setUser] = useState<any>(null)
   const [results, setResults] = useState<VotingResult | null>(null)
   const [voters, setVoters] = useState<UserVoteSummary[]>([])
+  const [trip, setTrip] = useState<TripDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isResetting, setIsResetting] = useState(false)
+  const [isWaitingForFinalization, setIsWaitingForFinalization] = useState(false)
 
   useEffect(() => {
     const userData = localStorage.getItem('user')
@@ -40,22 +44,53 @@ export default function ResultsPage() {
       return
     }
 
-    fetchResults()
+    if (tripId) {
+      fetchData()
+    }
   }, [router, tripId])
 
-  const fetchResults = async () => {
+  const fetchData = async () => {
     try {
-      const [resultsResponse, summaryResponse] = await Promise.all([
-        votesAPI.getResults(tripId as string),
-        votesAPI.getVotingSummary(tripId as string)
+      const [resultsResponse, summaryResponse, tripResponse] = await Promise.all([
+        votesAPI.getResults(tripId as string).catch(err => {
+          if (err.response?.status === 403 && err.response?.data?.detail === "Voting results are not yet finalized") {
+            setIsWaitingForFinalization(true)
+            return null
+          }
+          throw err
+        }),
+        votesAPI.getVotingSummary(tripId as string),
+        tripsAPI.getTrip(tripId as string)
       ])
-      setResults(resultsResponse)
+
+      if (resultsResponse) {
+        setResults(resultsResponse)
+      }
       setVoters(summaryResponse || [])
+      setTrip(tripResponse)
     } catch (error: any) {
-      console.error('Error fetching results:', error)
-      toast.error(error.response?.data?.detail || 'Failed to fetch results')
+      console.error('Error fetching data:', error)
+      toast.error(error.response?.data?.detail || 'Failed to fetch data')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleRevote = async () => {
+    if (!confirm('Are you sure you want to reset all votes? This action cannot be undone.')) return
+
+    setIsResetting(true)
+    try {
+      await votesAPI.resetVotes(tripId as string)
+      toast.success('Votes reset successfully')
+      // Reload data
+      fetchData()
+      // Optionally redirect to voting page
+      // router.push(`/trips/${tripId}/vote`)
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || 'Failed to reset votes')
+    } finally {
+      setIsResetting(false)
     }
   }
 
@@ -63,7 +98,7 @@ export default function ResultsPage() {
     return status ? (
       <CheckCircle className="w-5 h-5 text-green-600" />
     ) : (
-      <XCircle className="w-5 h-5 text-red-600" />
+      <Clock className="w-5 h-5 text-yellow-600" />
     )
   }
 
@@ -71,6 +106,29 @@ export default function ResultsPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
+
+  if (isWaitingForFinalization) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md p-6 bg-white rounded-xl shadow-sm border">
+          <Clock className="w-16 h-16 text-blue-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Voting in Progress</h2>
+          <p className="text-gray-600 mb-6">
+            The trip owner has not finalized the voting results yet. Please check back later or remind the owner to end the voting.
+          </p>
+          <div className="flex flex-col space-y-3">
+            <Button onClick={() => router.push(`/trips/${tripId}`)} variant="outline">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Trip
+            </Button>
+            <Button onClick={() => window.location.reload()} variant="ghost">
+              Refresh Status
+            </Button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -93,7 +151,8 @@ export default function ResultsPage() {
     )
   }
 
-  const isVotingComplete = !!results.winner
+  const isVotingComplete = !!results.winner || trip?.status === 'confirmed'
+  const isOwner = trip?.created_by === user?.id || trip?.participants.some(p => p.user_id === user?.id && p.role === 'owner')
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -127,11 +186,11 @@ export default function ResultsPage() {
                 </Badge>
                 <Badge
                   variant={isVotingComplete ? "success" : "warning"}
-                  className="flex items-center"
+                  className={`flex items-center ${isVotingComplete ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}
                 >
                   {getStatusIcon(isVotingComplete)}
                   <span className="ml-1">
-                    {isVotingComplete ? 'Complete' : 'In Progress'}
+                    {isVotingComplete ? 'Decided' : 'In Progress'}
                   </span>
                 </Badge>
               </div>
@@ -301,6 +360,18 @@ export default function ResultsPage() {
                   {user ? 'Cast Your Vote' : 'Sign In to Vote'}
                 </Button>
               )}
+
+              {isOwner && (
+                <Button
+                  variant="destructive"
+                  onClick={handleRevote}
+                  disabled={isResetting}
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  {isResetting ? 'Resetting...' : 'Revote (Reset All)'}
+                </Button>
+              )}
+
               <Button variant="outline" onClick={() => router.push(`/trips/${tripId}`)}>
                 Back to Trip
               </Button>

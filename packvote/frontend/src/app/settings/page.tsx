@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { User, Mail, MessageCircle, Save, LogOut, Shield, Bell, Settings } from 'lucide-react'
+import { User, Mail, MessageCircle, Save, LogOut, Shield, Bell, Settings, MapPin } from 'lucide-react'
 import { authAPI } from '@/lib/api'
 import { validateEmail } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -11,11 +11,13 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Navigation } from '@/components/layout/navigation'
 import toast from 'react-hot-toast'
+import { countries } from '@/lib/countries'
 
 interface UserSettings {
   name: string
   email: string
   telegram_id?: string
+  location?: string
 }
 
 export default function SettingsPage() {
@@ -24,7 +26,8 @@ export default function SettingsPage() {
   const [formData, setFormData] = useState<UserSettings>({
     name: '',
     email: '',
-    telegram_id: ''
+    telegram_id: '',
+    location: ''
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -37,7 +40,8 @@ export default function SettingsPage() {
       setFormData({
         name: parsedUser.name || '',
         email: parsedUser.email || '',
-        telegram_id: parsedUser.telegram_id || ''
+        telegram_id: parsedUser.telegram_id || '',
+        location: parsedUser.location || ''
       })
     } else {
       router.push('/auth/login')
@@ -47,7 +51,7 @@ export default function SettingsPage() {
     setIsLoading(false)
   }, [router])
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
@@ -67,7 +71,8 @@ export default function SettingsPage() {
     try {
       const updatedUser = await authAPI.updateProfile({
         name: formData.name.trim(),
-        telegram_id: formData.telegram_id?.trim() || undefined
+        telegram_id: formData.telegram_id?.trim() || undefined,
+        location: formData.location || undefined
       })
 
       // Update local storage
@@ -167,6 +172,37 @@ export default function SettingsPage() {
                       <p className="mt-1 text-sm text-gray-500">
                         Email address cannot be changed. Contact support if needed.
                       </p>
+                    </div>
+
+                    {/* Location / Country */}
+                    <div>
+                      <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
+                        Country
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <MapPin className="h-5 w-5 text-gray-400" />
+                        </div>
+                        <select
+                          id="location"
+                          name="location"
+                          value={formData.location}
+                          onChange={handleInputChange}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-10 appearance-none"
+                        >
+                          <option value="">Select your country</option>
+                          {countries.map((country) => (
+                            <option key={country} value={country}>
+                              {country}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Telegram ID */}

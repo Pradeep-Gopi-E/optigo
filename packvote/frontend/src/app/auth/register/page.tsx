@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Users, User } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, ArrowRight, Users, User, MapPin } from 'lucide-react'
 import { authAPI } from '@/lib/api'
-import { RegisterData } from '@/types/auth' // Make sure this type is defined!
+import { RegisterData } from '@/types/auth'
 import toast from 'react-hot-toast'
+import { countries } from '@/lib/countries'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -31,7 +32,7 @@ export default function RegisterPage() {
     setIsLoading(true)
     try {
       // 1. Call the register API
-      const response = await authAPI.register({ name: data.name, email: data.email, password: data.password })
+      const response = await authAPI.register({ name: data.name, email: data.email, password: data.password, location: data.location })
 
       // 2. Store auth data (just like the login page)
       localStorage.setItem('access_token', response.access_token)
@@ -48,9 +49,6 @@ export default function RegisterPage() {
     }
   }
 
-  // --- THIS IS THE ONLY PART THAT CHANGES ---
-  // We return the <motion.div> directly.
-  // The outer wrapper is now handled by app/auth/layout.tsx
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -129,20 +127,33 @@ export default function RegisterPage() {
           {/* Location Field */}
           <div>
             <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
-              Location (City, Country)
+              Country
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <User className="h-5 w-5 text-gray-400" />
+                <MapPin className="h-5 w-5 text-gray-400" />
               </div>
-              <input
-                {...register('location')}
-                type="text"
+              <select
+                {...register('location', { required: 'Country is required' })}
                 id="location"
-                className="input pl-10 w-full"
-                placeholder="New York, USA"
-              />
+                className="input pl-10 w-full appearance-none bg-white"
+              >
+                <option value="">Select your country</option>
+                {countries.map((country) => (
+                  <option key={country} value={country}>
+                    {country}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
             </div>
+            {errors.location && (
+              <p className="mt-1 text-sm text-red-600">{errors.location.message}</p>
+            )}
           </div>
 
           {/* Password Field */}

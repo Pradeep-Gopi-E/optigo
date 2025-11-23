@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Save, GripVertical, AlertCircle, CheckCircle2 } from 'lucide-react'
-import { tripsAPI, recommendationsAPI, votesAPI } from '@/lib/api'
+import { tripsAPI, recommendationsAPI, votesAPI, authAPI } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
@@ -33,6 +33,9 @@ export default function VotingPage() {
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [hasVoted, setHasVoted] = useState(false)
 
+    const [currentUser, setCurrentUser] = useState<any>(null)
+    const [trip, setTrip] = useState<any>(null)
+
     useEffect(() => {
         if (tripId) {
             fetchData()
@@ -41,10 +44,15 @@ export default function VotingPage() {
 
     const fetchData = async () => {
         try {
-            const [recsResponse, votesResponse] = await Promise.all([
+            const [recsResponse, votesResponse, tripResponse, userResponse] = await Promise.all([
                 recommendationsAPI.getRecommendations(tripId),
-                votesAPI.getMyVotes(tripId).catch(() => [] as any[]) // Handle 404 if no votes yet
+                votesAPI.getMyVotes(tripId).catch(() => [] as any[]), // Handle 404 if no votes yet
+                tripsAPI.getTrip(tripId),
+                authAPI.getMe()
             ])
+
+            setTrip(tripResponse)
+            setCurrentUser(userResponse)
 
             // If user has voted, order candidates by their rank
             if (votesResponse && votesResponse.length > 0) {
@@ -104,6 +112,19 @@ export default function VotingPage() {
         }
     }
 
+    const endVoting = async () => {
+        if (!confirm('Are you sure you want to end voting? This will finalize the results and set the destination.')) return
+        setIsSubmitting(true)
+        try {
+            await votesAPI.finalizeVoting(tripId)
+            toast.success('Voting finalized!')
+            router.push(`/trips/${tripId}/results`)
+        } catch (error: any) {
+            toast.error(error.response?.data?.detail || 'Failed to finalize voting')
+            setIsSubmitting(false)
+        }
+    }
+
     if (isLoading) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -111,6 +132,8 @@ export default function VotingPage() {
             </div>
         )
     }
+
+    const isOwner = currentUser && trip && currentUser.id === trip.created_by
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -123,14 +146,43 @@ export default function VotingPage() {
                             </Link>
                             <h1 className="text-xl font-semibold text-gray-900">Cast Your Vote</h1>
                         </div>
-                        <button
-                            onClick={submitVotes}
-                            disabled={isSubmitting}
-                            className="btn btn-primary flex items-center"
-                        >
-                            <Save className="w-4 h-4 mr-2" />
-                            {isSubmitting ? 'Submitting...' : hasVoted ? 'Update Votes' : 'Submit Votes'}
-                        </button>
+                        <div className="flex space-x-2">
+                            {isOwner && (
+                                <button
+                                    onClick={endVoting}
+                                    disabled={isSubmitting}
+                                    className="btn btn-error text-white"
+                                >
+                                    End Voting
+                                </button>
+                            )}
+                            <button
+                                onClick={async () => {
+                                    if (!confirm('Are you sure you want to skip voting? This will be counted as a participation.')) return
+                                    setIsSubmitting(true)
+                                    try {
+                                        await votesAPI.skipVote(tripId)
+                                        toast.success('You skipped voting')
+                                        router.push(`/trips/${tripId}/results`)
+                                    } catch (error: any) {
+                                        toast.error(error.response?.data?.detail || 'Failed to skip vote')
+                                        setIsSubmitting(false)
+                                    }
+                                }}
+                                disabled={isSubmitting}
+                                className="btn btn-ghost text-gray-600 hover:text-gray-900"
+                            >
+                                Skip Vote
+                            </button>
+                            <button
+                                onClick={submitVotes}
+                                disabled={isSubmitting || candidates.length === 0}
+                                className="btn btn-primary flex items-center"
+                            >
+                                <Save className="w-4 h-4 mr-2" />
+                                {isSubmitting ? 'Submitting...' : hasVoted ? 'Update Votes' : 'Submit Votes'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </header>

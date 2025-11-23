@@ -65,8 +65,11 @@ export interface Recommendation {
 export interface Vote {
   id: string;
   trip_id: string;
-  has_voted: boolean;
-  vote_count: number;
+  user_id: string;
+  recommendation_id: string;
+  rank: number;
+  created_at?: string;
+  destination_name?: string;
 }
 
 export interface VotingResult {
@@ -275,28 +278,9 @@ export const recommendationsAPI = {
 
 // --- Votes API ---
 export const votesAPI = {
-  getVotes: async (tripId: string): Promise<Vote[]> => {
-    const headers = getAuthHeaders();
-    const response = await axios.get(`${API_BASE_URL}/trips/${tripId}/votes`, { headers });
-    return response.data;
-  },
-
-  castVotes: async (tripId: string, data: { votes: Array<{ recommendation_id: string; rank: number }> }) => {
+  castVotes: async (tripId: string, data: { votes: { recommendation_id: string; rank: number }[] }) => {
     const headers = getAuthHeaders();
     const response = await axios.post(`${API_BASE_URL}/trips/${tripId}/votes`, data, { headers });
-    return response.data;
-  },
-
-  getMyVotes: async (tripId: string): Promise<Vote[]> => {
-    const headers = getAuthHeaders();
-    const response = await axios.get(`${API_BASE_URL}/trips/${tripId}/votes/my-votes`, { headers });
-    return response.data;
-  },
-
-  // Alias for compatibility
-  getUserVote: async (tripId: string): Promise<Vote[]> => {
-    const headers = getAuthHeaders();
-    const response = await axios.get(`${API_BASE_URL}/trips/${tripId}/votes/my-votes`, { headers });
     return response.data;
   },
 
@@ -306,48 +290,55 @@ export const votesAPI = {
     return response.data;
   },
 
+  getMyVotes: async (tripId: string) => {
+    const headers = getAuthHeaders();
+    const response = await axios.get(`${API_BASE_URL}/trips/${tripId}/votes/my-votes`, { headers });
+    return response.data;
+  },
+
   getVotingSummary: async (tripId: string): Promise<UserVoteSummary[]> => {
     const headers = getAuthHeaders();
     const response = await axios.get(`${API_BASE_URL}/trips/${tripId}/votes/summary`, { headers });
     return response.data;
   },
 
-  withdrawVotes: async (tripId: string) => {
+  skipVote: async (tripId: string) => {
     const headers = getAuthHeaders();
-    const response = await axios.delete(`${API_BASE_URL}/trips/${tripId}/votes`, { headers });
+    const response = await axios.post(`${API_BASE_URL}/trips/${tripId}/votes/skip`, {}, { headers });
+    return response.data;
+  },
+
+  resetVotes: async (tripId: string) => {
+    const headers = getAuthHeaders();
+    const response = await axios.post(`${API_BASE_URL}/trips/${tripId}/votes/reset`, {}, { headers });
+    return response.data;
+  },
+
+  finalizeVoting: async (tripId: string): Promise<VotingResult> => {
+    const headers = getAuthHeaders();
+    const response = await axios.post(`${API_BASE_URL}/trips/${tripId}/votes/finalize`, {}, { headers });
     return response.data;
   },
 };
 
 // --- Preferences API ---
 export const preferencesAPI = {
-  getPreferences: async (tripId: string) => {
+  getPreferences: async (tripId: string): Promise<Preference | null> => {
     const headers = getAuthHeaders();
-    const response = await axios.get(`${API_BASE_URL}/trips/${tripId}/preferences`, { headers });
-    return response.data;
+    try {
+      const response = await axios.get(`${API_BASE_URL}/trips/${tripId}/preferences`, { headers });
+      return response.data;
+    } catch (error: any) {
+      if (error.response && error.response.status === 404) {
+        return null;
+      }
+      throw error;
+    }
   },
 
-  createPreference: async (tripId: string, data: any) => {
+  savePreferences: async (tripId: string, preferences: any) => {
     const headers = getAuthHeaders();
-    const response = await axios.post(`${API_BASE_URL}/trips/${tripId}/preferences`, data, { headers });
-    return response.data;
-  },
-
-  updatePreference: async (tripId: string, prefId: string, data: any) => {
-    const headers = getAuthHeaders();
-    const response = await axios.put(`${API_BASE_URL}/trips/${tripId}/preferences/${prefId}`, data, { headers });
-    return response.data;
-  },
-
-  getSurvey: async (tripId: string) => {
-    const headers = getAuthHeaders();
-    const response = await axios.get(`${API_BASE_URL}/trips/${tripId}/preferences/survey`, { headers });
-    return response.data;
-  },
-
-  submitSurvey: async (tripId: string, data: any) => {
-    const headers = getAuthHeaders();
-    const response = await axios.post(`${API_BASE_URL}/trips/${tripId}/preferences/survey`, data, { headers });
+    const response = await axios.post(`${API_BASE_URL}/trips/${tripId}/preferences`, preferences, { headers });
     return response.data;
   },
 };

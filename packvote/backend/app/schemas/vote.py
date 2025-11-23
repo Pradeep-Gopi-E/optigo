@@ -19,8 +19,7 @@ class VoteResponse(BaseModel):
     recommendation_id: str
     rank: int
     created_at: Optional[datetime] = None
-    has_voted: bool
-    vote_count: int
+    destination_name: Optional[str] = None
 
     class Config:
         from_attributes = True

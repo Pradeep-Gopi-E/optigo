@@ -1,6 +1,6 @@
 from typing import List, Dict, Optional, Tuple, NamedTuple
 from sqlalchemy.orm import Session
-from ..models import Vote, Recommendation, User
+from ..models import Vote, Recommendation, User, Trip, Participant
 import logging
 
 logger = logging.getLogger(__name__)
@@ -349,10 +349,123 @@ class VotingService:
                 )
                 self.db.add(vote)
 
+            # Update participant vote status
+            participant = self.db.query(Participant).filter(
+                Participant.trip_id == trip_id,
+                Participant.user_id == user_id
+            ).first()
+            
+            if participant:
+                participant.vote_status = "voted"
+
             self.db.commit()
             return True
 
         except Exception as e:
             logger.error(f"Error casting vote: {str(e)}")
+            self.db.rollback()
+            return False
+
+    def skip_vote(self, user_id: str, trip_id: str) -> bool:
+        """
+        Mark a user as having skipped voting
+        """
+        try:
+            # Delete any existing votes
+            self.db.query(Vote).filter(
+                Vote.user_id == user_id,
+                Vote.trip_id == trip_id
+            ).delete()
+
+            # Update participant status
+            participant = self.db.query(Participant).filter(
+                Participant.trip_id == trip_id,
+                Participant.user_id == user_id
+            ).first()
+
+            if participant:
+                participant.vote_status = "skipped"
+                self.db.commit()
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Error skipping vote: {str(e)}")
+            self.db.rollback()
+            return False
+
+    def check_voting_completion(self, trip_id: str) -> bool:
+        """
+        Check if all participants have voted or skipped.
+        If so, calculate results and update trip status.
+        """
+        try:
+            # Get all joined participants
+            participants = self.db.query(Participant).filter(
+                Participant.trip_id == trip_id,
+                Participant.status == "joined"
+            ).all()
+
+            if not participants:
+                return False
+
+            # Check if everyone has voted or skipped
+            all_done = all(p.vote_status in ["voted", "skipped"] for p in participants)
+
+            if all_done:
+                # Just return True to indicate voting is complete, but don't change status
+                return True
+            
+            return False
+
+        except Exception as e:
+            logger.error(f"Error checking voting completion: {str(e)}")
+            return False
+
+    def finalize_voting(self, trip_id: str) -> Dict:
+        """
+        Manually finalize voting, calculate results, and update trip status.
+        """
+        try:
+            # Calculate results to find winner
+            results = self.calculate_results(trip_id)
+            winner = results.get("winner")
+
+            trip = self.db.query(Trip).filter(Trip.id == trip_id).first()
+            if trip:
+                trip.status = "confirmed" # Using confirmed as "Decided"
+                if winner:
+                    trip.destination = winner["destination_name"]
+                self.db.commit()
+            
+            return results
+
+        except Exception as e:
+            logger.error(f"Error finalizing voting: {str(e)}")
+            self.db.rollback()
+            raise
+
+    def reset_votes(self, trip_id: str) -> bool:
+        """
+        Reset all votes for a trip and set status back to planning/voting
+        """
+        try:
+            # Delete all votes
+            self.db.query(Vote).filter(Vote.trip_id == trip_id).delete()
+
+            # Reset participant statuses
+            self.db.query(Participant).filter(
+                Participant.trip_id == trip_id
+            ).update({"vote_status": "not_voted"})
+
+            # Reset trip status
+            trip = self.db.query(Trip).filter(Trip.id == trip_id).first()
+            if trip:
+                trip.status = "voting" # Or planning, but voting makes sense if we are revoting
+                trip.destination = None # Clear destination
+            
+            self.db.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error resetting votes: {str(e)}")
             self.db.rollback()
             return False

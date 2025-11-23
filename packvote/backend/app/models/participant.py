@@ -30,6 +30,7 @@ class Participant(Base):
     status = Column(Enum(ParticipantStatus), default=ParticipantStatus.invited)
     invited_at = Column(DateTime(timezone=True), server_default=func.now())
     joined_at = Column(DateTime(timezone=True), nullable=True)
+    vote_status = Column(Enum("not_voted", "voted", "skipped", name="votestatus"), default="not_voted")
 
     # Relationships
     trip = relationship("Trip", back_populates="participants")
