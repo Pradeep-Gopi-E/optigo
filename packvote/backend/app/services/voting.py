@@ -7,16 +7,17 @@ logger = logging.getLogger(__name__)
 
 # Borda Count Voting Implementation
 class Candidate:
-    def __init__(self, id: str, destination_name: str, description: str = ""):
+    def __init__(self, id: str, destination_name: str, description: str = "", estimated_cost: float = 0.0):
         self.id = id
         self.destination_name = destination_name
         self.description = description
+        self.estimated_cost = estimated_cost or 0.0
 
     def __str__(self):
         return self.destination_name
 
     def __repr__(self):
-        return f"Candidate(id={self.id}, name={self.destination_name})"
+        return f"Candidate(id={self.id}, name={self.destination_name}, cost={self.estimated_cost})"
 
 class Ballot:
     def __init__(self, ranking: List[str]):
@@ -27,7 +28,7 @@ class Ballot:
 
 def calculate_borda_count(candidates: List[Candidate], ballots: List[Ballot]) -> Tuple[Optional[Candidate], Dict[str, int]]:
     """
-    Implement Borda Count voting algorithm
+    Implement Borda Count voting algorithm with tie-breaking based on cost.
     
     Points assignment:
     - If there are N candidates:
@@ -36,6 +37,9 @@ def calculate_borda_count(candidates: List[Candidate], ballots: List[Ballot]) ->
     - ...
     - Last choice gets 1 point
     - Unranked candidates get 0 points
+    
+    Tie-breaker:
+    - If scores are equal, the candidate with the LOWER estimated_cost wins.
     
     Args:
         candidates: List of candidates
@@ -62,12 +66,21 @@ def calculate_borda_count(candidates: List[Candidate], ballots: List[Ballot]) ->
                 if points > 0:
                     scores[candidate_id] += points
 
-    # Find winner (highest score)
+    # Find winner (highest score, then lowest cost)
     if not scores:
         return None, {}
         
-    # Sort scores descending
-    sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    # Sort scores: Primary key = score (desc), Secondary key = cost (asc)
+    # We use a tuple for sorting: (score, -cost) if we want both desc, but cost needs to be asc.
+    # So we can sort by score desc, then cost asc.
+    # Python's sort is stable, so we can sort by cost first, then by score.
+    
+    # First sort by cost (ascending) - cheaper is better
+    sorted_by_cost = sorted(scores.items(), key=lambda x: candidate_map[x[0]].estimated_cost)
+    
+    # Then sort by score (descending) - higher is better
+    # Since sort is stable, candidates with equal scores will remain sorted by cost
+    sorted_scores = sorted(sorted_by_cost, key=lambda x: x[1], reverse=True)
     
     # Get winner ID
     winner_id = sorted_scores[0][0]
@@ -183,7 +196,8 @@ class VotingService:
             candidate = Candidate(
                 id=str(rec.id),
                 destination_name=rec.destination_name,
-                description=rec.description or ""
+                description=rec.description or "",
+                estimated_cost=float(rec.estimated_cost) if rec.estimated_cost else 0.0
             )
             candidates.append(candidate)
 

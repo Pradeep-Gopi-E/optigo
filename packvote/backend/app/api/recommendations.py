@@ -7,6 +7,7 @@ from ..schemas.recommendation import RecommendationCreate, RecommendationRespons
 from ..services.auth import AuthService
 from ..services.ai_service import AIService
 from ..services.voting import VotingService
+from ..services.unsplash_service import unsplash_service
 from ..models import Recommendation, Trip
 from ..utils.database import get_db
 from ..api.auth import get_current_user
@@ -67,6 +68,7 @@ async def get_trip_recommendations(
                 accommodation_options=rec.accommodation_options,
                 transportation_options=rec.meta.get("transportation_options", []) if rec.meta else [],
                 ai_generated=rec.ai_generated,
+                image_url=rec.image_url,
                 created_at=rec.created_at
             )
             recommendation_responses.append(recommendation_response)
@@ -133,7 +135,7 @@ async def generate_ai_recommendations(
 
         # Generate AI recommendations
         ai_service = AIService(db)
-        created_recommendations = ai_service.generate_recommendations(trip_id)
+        created_recommendations = await ai_service.generate_recommendations(trip_id)
 
         ai_service_available = True  # Track if AI was actually used
         if not created_recommendations:
@@ -218,6 +220,11 @@ async def create_custom_recommendation(
             ai_generated=recommendation_data.ai_generated
         )
 
+        # Fetch image from Unsplash
+        image_url = await unsplash_service.get_photo_url(new_recommendation.destination_name)
+        if image_url:
+            new_recommendation.image_url = image_url
+
         db.add(new_recommendation)
         db.commit()
         db.refresh(new_recommendation)
@@ -232,6 +239,7 @@ async def create_custom_recommendation(
             accommodation_options=new_recommendation.accommodation_options,
             transportation_options=new_recommendation.meta.get("transportation_options", []) if new_recommendation.meta else [],
             ai_generated=new_recommendation.ai_generated,
+            image_url=new_recommendation.image_url,
             created_at=new_recommendation.created_at
         )
 
@@ -296,6 +304,7 @@ async def get_recommendation(
             accommodation_options=recommendation.accommodation_options,
             transportation_options=recommendation.meta.get("transportation_options", []) if recommendation.meta else [],
             ai_generated=recommendation.ai_generated,
+            image_url=recommendation.image_url,
             created_at=recommendation.created_at
         )
 

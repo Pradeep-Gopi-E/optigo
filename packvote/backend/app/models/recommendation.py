@@ -20,10 +20,11 @@ class Recommendation(Base):
     ai_generated = Column(Boolean, default=False)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
+
     # New fields
     weather_info = Column(String(255), nullable=True)
     meta = Column(JSON, nullable=True)  # Stores extra info like cost breakdown, etc.
+    image_url = Column(String, nullable=True)
 
     # Relationships
     trip = relationship("Trip", back_populates="recommendations")

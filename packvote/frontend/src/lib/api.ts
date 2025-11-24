@@ -1,52 +1,53 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-// Base URL of your FastAPI backend
 const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}`;
 
-// --- Type Definitions ---
-
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  telegram_id?: string;
-  created_at: string;
-}
-
+// --- Types ---
 export interface Trip {
   id: string;
   title: string;
-  description?: string | null;
-  destination?: string | null;
-  start_date?: string | null;
-  end_date?: string | null;
-  budget_min?: number | null;
-  budget_max?: number | null;
-  expected_participants?: number | null;
-  invite_code?: string | null;
+  destination?: string;
+  start_date?: string;
+  end_date?: string;
+  status: string;
+  participant_count: number;
+  created_at: string;
+  description?: string;
+  budget_min?: number;
+  budget_max?: number;
+  created_by?: string;
+}
+
+export interface TripDetail {
+  id: string;
+  title: string;
+  description?: string;
+  destination?: string;
+  start_date?: string;
+  end_date?: string;
+  budget_min?: number;
+  budget_max?: number;
+  currency?: string;
   status: 'planning' | 'voting' | 'confirmed' | 'cancelled';
-  allow_member_recommendations: boolean;
   created_by: string;
+  invite_code?: string;
+  participants: Participant[];
   created_at: string;
   updated_at: string;
-  participant_count?: number;
+  allow_member_recommendations: boolean;
+  expected_participants?: number;
 }
 
 export interface Participant {
   id: string;
   user_id: string;
+  user_name: string;
   trip_id: string;
-  role: 'owner' | 'admin' | 'member';
+  role: 'owner' | 'editor' | 'viewer';
   status: 'joined' | 'invited' | 'declined';
   joined_at?: string;
-  user_name: string;
-  user_email: string;
-  vote_status?: 'not_voted' | 'voted' | 'skipped';
-}
-
-export interface TripDetail extends Trip {
-  participants: Participant[];
+  vote_status: 'not_voted' | 'voted' | 'skipped';
 }
 
 export interface Recommendation {
@@ -64,6 +65,7 @@ export interface Recommendation {
   rank_score?: number;
   meta?: any;
   weather_info?: string;
+  image_url?: string;
 }
 
 export interface Vote {
@@ -97,12 +99,20 @@ export interface UserVoteSummary {
   vote_count: number;
 }
 
+export interface PreferenceData {
+  vibe?: string[];
+  activities?: string[];
+  budget_level?: string;
+  duration_days?: number;
+  [key: string]: any;
+}
+
 export interface Preference {
   id: string;
   trip_id: string;
   user_id: string;
   preference_type: string;
-  preference_data: any;
+  preference_data: PreferenceData;
   created_at: string;
   updated_at: string;
   user_name?: string;
@@ -268,6 +278,12 @@ export const recommendationsAPI = {
   createRecommendation: async (tripId: string, data: any) => {
     const headers = getAuthHeaders();
     const response = await axios.post(`${API_BASE_URL}/trips/${tripId}/recommendations`, data, { headers });
+    return response.data;
+  },
+
+  updateRecommendation: async (tripId: string, recId: string, data: any) => {
+    const headers = getAuthHeaders();
+    const response = await axios.put(`${API_BASE_URL}/trips/${tripId}/recommendations/${recId}`, data, { headers });
     return response.data;
   },
 

@@ -20,7 +20,9 @@ import {
   Sparkles,
   Copy,
   CheckCircle2,
-  ArrowRight
+  ArrowRight,
+  Pencil,
+  Globe
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -30,10 +32,12 @@ import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
-import { tripsAPI, recommendationsAPI, TripDetail, Recommendation } from '@/lib/api'
-import { cn, formatCurrency, generateInitials, formatDate } from '@/lib/utils'
+import { tripsAPI, recommendationsAPI, preferencesAPI, TripDetail, Recommendation, Preference } from '@/lib/api'
+import { cn, formatCurrency as formatCurrencyUtil, generateInitials, formatDate, getCurrencyFromLocale, convertCurrency } from '@/lib/utils'
 import ShareTripModal from '@/components/trips/ShareTripModal'
 import CustomRecommendationModal from '@/components/trips/CustomRecommendationModal'
+import EditRecommendationModal from '@/components/trips/EditRecommendationModal'
+import RecommendationDetailsModal from '@/components/trips/RecommendationDetailsModal'
 
 export default function TripDetailPage() {
   const params = useParams()
@@ -42,12 +46,18 @@ export default function TripDetailPage() {
 
   const [trip, setTrip] = useState<TripDetail | null>(null)
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
-  const [activeTab, setActiveTab] = useState<'overview' | 'participants' | 'recommendations' | 'voting'>('overview')
+  const [preferences, setPreferences] = useState<Preference | null>(null)
+  const [activeTab, setActiveTab] = useState<'overview' | 'participants' | 'preferences' | 'recommendations' | 'voting'>('overview')
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const [isCustomRecModalOpen, setIsCustomRecModalOpen] = useState(false)
+  const [isEditRecModalOpen, setIsEditRecModalOpen] = useState(false)
+  const [selectedRec, setSelectedRec] = useState<Recommendation | null>(null)
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
+  const [viewingRec, setViewingRec] = useState<Recommendation | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isGeneratingRecs, setIsGeneratingRecs] = useState(false)
   const [user, setUser] = useState<any>(null)
+  const [currency, setCurrency] = useState('USD')
 
   useEffect(() => {
     const userData = localStorage.getItem('user')
@@ -58,7 +68,10 @@ export default function TripDetailPage() {
     if (tripId) {
       fetchTripDetails()
       fetchRecommendations()
+      fetchPreferences()
     }
+
+    setCurrency(getCurrencyFromLocale())
   }, [tripId])
 
   const fetchTripDetails = async () => {
@@ -86,6 +99,15 @@ export default function TripDetailPage() {
     }
   }
 
+  const fetchPreferences = async () => {
+    try {
+      const response = await preferencesAPI.getPreferences(tripId)
+      setPreferences(response)
+    } catch (error) {
+      console.error('Failed to fetch preferences:', error)
+    }
+  }
+
   const generateRecommendations = async (clearExisting: boolean = true) => {
     setIsGeneratingRecs(true)
     try {
@@ -110,6 +132,16 @@ export default function TripDetailPage() {
     }
   }
 
+  const handleEditRecommendation = (rec: Recommendation) => {
+    setSelectedRec(rec)
+    setIsEditRecModalOpen(true)
+  }
+
+  const handleViewRecommendation = (rec: Recommendation) => {
+    setViewingRec(rec)
+    setIsDetailsModalOpen(true)
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
@@ -118,12 +150,8 @@ export default function TripDetailPage() {
     })
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 0
-    }).format(amount)
+  const formatCurrency = (amount: number | null | undefined) => {
+    return formatCurrencyUtil(amount, currency)
   }
 
   const formatBudgetRange = (min?: number | null, max?: number | null) => {
@@ -154,7 +182,7 @@ export default function TripDetailPage() {
 
   if (!trip) return null
 
-  const tabs = ['overview', 'participants', 'recommendations', 'voting']
+  const tabs = ['overview', 'participants', 'preferences', 'recommendations', 'voting']
   const isOwner = trip.created_by === user?.id
   const canAddRecommendation = isOwner || trip.allow_member_recommendations
 
@@ -192,6 +220,22 @@ export default function TripDetailPage() {
               </div>
             </div>
             <div className="flex gap-2">
+              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-md px-2 py-1 border border-white/20">
+                <Globe className="h-3 w-3 text-white/70" />
+                <select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  className="bg-transparent text-white text-sm font-medium focus:outline-none cursor-pointer [&>option]:text-black border-none outline-none appearance-none pr-2"
+                >
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="GBP">GBP (£)</option>
+                  <option value="JPY">JPY (¥)</option>
+                  <option value="AUD">AUD (A$)</option>
+                  <option value="CAD">CAD (C$)</option>
+                  <option value="INR">INR (₹)</option>
+                </select>
+              </div>
               <Button
                 variant="secondary"
                 className="gap-2"
@@ -202,7 +246,7 @@ export default function TripDetailPage() {
               </Button>
               {trip.status === 'planning' && (
                 <Button onClick={() => router.push(`/trips/${tripId}/preferences`)}>
-                  Add Preferences
+                  Edit Preferences
                 </Button>
               )}
             </div>
@@ -215,13 +259,13 @@ export default function TripDetailPage() {
 
       {/* Trip Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex space-x-1 rounded-xl bg-gray-200 p-1 mb-6">
+        <div className="flex space-x-1 rounded-xl bg-gray-200 p-1 mb-6 overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
               className={cn(
-                'w-full rounded-lg py-2.5 text-sm font-medium leading-5 transition-all duration-200',
+                'w-full rounded-lg py-2.5 text-sm font-medium leading-5 transition-all duration-200 whitespace-nowrap px-4',
                 activeTab === tab
                   ? 'bg-white text-primary shadow'
                   : 'text-gray-600 hover:bg-white/[0.12] hover:text-primary'
@@ -290,6 +334,92 @@ export default function TripDetailPage() {
               </Card>
             )}
 
+            {activeTab === 'preferences' && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle>Group Preferences</CardTitle>
+                      <CardDescription>
+                        Preferences used to generate AI recommendations.
+                      </CardDescription>
+                    </div>
+                    {isOwner && (
+                      <Button onClick={() => router.push(`/trips/${tripId}/preferences`)} variant="outline" size="sm">
+                        <Settings className="h-4 w-4 mr-2" />
+                        Edit Preferences
+                      </Button>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    {preferences ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <h3 className="font-semibold mb-1 text-sm text-gray-500 uppercase">Vibe</h3>
+                            <div className="flex flex-wrap gap-2">
+                              {preferences.preference_data?.vibe?.map((v: string) => (
+                                <Badge key={v} variant="secondary">{v}</Badge>
+                              )) || 'Not specified'}
+                            </div>
+                          </div>
+                          <div>
+                            <h3 className="font-semibold mb-1 text-sm text-gray-500 uppercase">Activities</h3>
+                            <div className="flex flex-wrap gap-2">
+                              {preferences.preference_data?.activities?.map((a: string) => (
+                                <Badge key={a} variant="outline">{a}</Badge>
+                              )) || 'Not specified'}
+                            </div>
+                          </div>
+                          <div>
+                            <h3 className="font-semibold mb-1 text-sm text-gray-500 uppercase">Budget Level</h3>
+                            <p className="font-medium capitalize">{preferences.preference_data?.budget_level || 'Not specified'}</p>
+                          </div>
+                          <div>
+                            <h3 className="font-semibold mb-1 text-sm text-gray-500 uppercase">Duration</h3>
+                            <p className="font-medium">{preferences.preference_data?.duration_days ? `${preferences.preference_data.duration_days} days` : 'Not specified'}</p>
+                          </div>
+                        </div>
+
+                        {isOwner && (
+                          <div className="pt-4 border-t mt-4">
+                            <div className="bg-blue-50 p-4 rounded-lg flex items-center justify-between">
+                              <div>
+                                <h4 className="font-semibold text-blue-900">Want new recommendations?</h4>
+                                <p className="text-sm text-blue-700">Regenerating will replace existing AI recommendations based on these preferences.</p>
+                              </div>
+                              <Button onClick={() => generateRecommendations(true)} disabled={isGeneratingRecs} size="sm">
+                                {isGeneratingRecs ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Generating...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles className="mr-2 h-4 w-4" />
+                                    Regenerate
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <p className="text-gray-500 mb-4">No preferences set yet.</p>
+                        {isOwner && (
+                          <Button onClick={() => router.push(`/trips/${tripId}/preferences`)}>
+                            Set Preferences
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
             {activeTab === 'recommendations' && (
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
@@ -342,13 +472,17 @@ export default function TripDetailPage() {
                 ) : (
                   <div className="grid gap-6">
                     {recommendations.map((rec) => (
-                      <Card key={rec.id} className="overflow-hidden hover:shadow-md transition-shadow">
+                      <Card
+                        key={rec.id}
+                        className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer group"
+                        onClick={() => handleViewRecommendation(rec)}
+                      >
                         <div className="md:flex">
                           <div className="md:w-1/3 h-48 md:h-auto relative">
                             <img
-                              src={`https://source.unsplash.com/800x600/?${rec.destination_name},travel`}
+                              src={rec.image_url || `https://source.unsplash.com/800x600/?${rec.destination_name},travel`}
                               alt={rec.destination_name}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                             />
                             {rec.ai_generated && (
                               <Badge className="absolute top-2 right-2 bg-purple-500/90 backdrop-blur-sm">
@@ -359,12 +493,27 @@ export default function TripDetailPage() {
                           <div className="p-6 md:w-2/3 flex flex-col justify-between">
                             <div>
                               <div className="flex justify-between items-start mb-2">
-                                <h3 className="text-xl font-bold">{rec.destination_name}</h3>
-                                {rec.estimated_cost && (
-                                  <Badge variant="secondary" className="text-green-700 bg-green-50">
-                                    {formatCurrency(rec.estimated_cost)}
-                                  </Badge>
-                                )}
+                                <h3 className="text-xl font-bold group-hover:text-primary transition-colors">{rec.destination_name}</h3>
+                                <div className="flex items-center gap-2">
+                                  {rec.estimated_cost && (
+                                    <Badge variant="secondary" className="text-green-700 bg-green-50">
+                                      {formatCurrency(convertCurrency(rec.estimated_cost, 'USD', currency))}
+                                    </Badge>
+                                  )}
+                                  {(isOwner || rec.created_by === user?.id) && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleEditRecommendation(rec)
+                                      }}
+                                    >
+                                      <Pencil className="h-4 w-4 text-gray-500" />
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
                               <p className="text-gray-600 mb-4 line-clamp-2">{rec.description}</p>
 
@@ -372,13 +521,13 @@ export default function TripDetailPage() {
                                 <div>
                                   <h4 className="text-sm font-semibold text-gray-900 mb-1">Activities</h4>
                                   <div className="flex flex-wrap gap-2">
-                                    {rec.activities.slice(0, 3).map((activity, i) => (
+                                    {(Array.isArray(rec.activities) ? rec.activities : []).slice(0, 3).map((activity, i) => (
                                       <Badge key={i} variant="outline" className="bg-gray-50">
                                         {activity}
                                       </Badge>
                                     ))}
-                                    {rec.activities.length > 3 && (
-                                      <Badge variant="outline" className="bg-gray-50">+{rec.activities.length - 3}</Badge>
+                                    {(Array.isArray(rec.activities) ? rec.activities : []).length > 3 && (
+                                      <Badge variant="outline" className="bg-gray-50">+{(Array.isArray(rec.activities) ? rec.activities : []).length - 3}</Badge>
                                     )}
                                   </div>
                                 </div>
@@ -527,6 +676,24 @@ export default function TripDetailPage() {
           fetchRecommendations()
           toast.success('Recommendation added successfully')
         }}
+      />
+
+      <EditRecommendationModal
+        isOpen={isEditRecModalOpen}
+        onClose={() => setIsEditRecModalOpen(false)}
+        recommendation={selectedRec}
+        tripId={tripId}
+        onSuccess={() => {
+          fetchRecommendations()
+          setIsEditRecModalOpen(false)
+        }}
+      />
+
+      <RecommendationDetailsModal
+        isOpen={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
+        recommendation={viewingRec}
+        userCurrency={currency}
       />
     </div>
   )

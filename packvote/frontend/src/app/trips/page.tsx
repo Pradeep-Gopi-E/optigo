@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Plus, Users, Calendar, MapPin, Search, MoreHorizontal } from 'lucide-react'
 import { tripsAPI, Trip } from '@/lib/api'
-import { formatDate, formatCurrency, getStatusColor } from '@/lib/utils'
+import { formatDate, formatCurrency, getStatusColor, getCurrencyFromLocale } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -21,6 +21,7 @@ export default function TripsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [user, setUser] = useState<any>(null)
+  const [currency, setCurrency] = useState('USD')
 
   useEffect(() => {
     const userData = localStorage.getItem('user')
@@ -32,6 +33,7 @@ export default function TripsPage() {
     }
 
     fetchTrips()
+    setCurrency(getCurrencyFromLocale())
   }, [router])
 
   useEffect(() => {
@@ -207,7 +209,7 @@ export default function TripsPage() {
                             <div className="text-sm text-gray-600">
                               <span>Budget: </span>
                               <span className="font-medium">
-                                {formatCurrency(trip.budget_min)} - {formatCurrency(trip.budget_max)}
+                                {formatCurrency(trip.budget_min, currency)} - {formatCurrency(trip.budget_max, currency)}
                               </span>
                             </div>
                           )}

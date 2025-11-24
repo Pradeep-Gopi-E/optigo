@@ -2,7 +2,6 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
-
 class RecommendationCreate(BaseModel):
     destination_name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
@@ -24,11 +23,12 @@ class RecommendationResponse(BaseModel):
     transportation_options: Optional[List[str]] = None
     ai_generated: bool
     created_at: Optional[datetime] = None
+    image_url: Optional[str] = None
+    weather_info: Optional[str] = None
+    meta: Optional[dict] = None
 
     class Config:
         from_attributes = True
-
-
 class GenerateRecommendationsResponse(BaseModel):
     message: str
     recommendations_generated: int
