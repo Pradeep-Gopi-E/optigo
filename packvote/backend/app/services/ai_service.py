@@ -127,11 +127,55 @@ class AIService:
         except Exception as e:
             logger.error(f"Error generating AI recommendations: {str(e)}")
             print(f"DEBUG: Error generating AI recommendations: {str(e)}")
-            self._log_debug(f"Error generating AI recommendations: {str(e)}")
             import traceback
             traceback.print_exc()
             self._log_debug(traceback.format_exc())
             return await self._generate_fallback_recommendations(trip_id)
+
+    async def generate_personalization(self, destination: str, user_location: str) -> Dict[str, Any]:
+        """
+        Generate personalized cost and description for a specific user location
+        """
+        self._log_debug(f"Generating personalization for {destination} from {user_location}")
+        
+        if not self.model:
+            return {
+                "estimated_cost": None,
+                "description": "AI service unavailable for personalization.",
+                "travel_time": "Unknown"
+            }
+
+        prompt = f"""
+        You are a travel expert.
+        Calculate the estimated travel cost and provide a brief travel description for a trip to {destination} starting from {user_location}.
+        
+        Assume a standard 1-week trip duration.
+        
+        Return ONLY valid JSON in this format:
+        {{
+            "estimated_cost_from_origin": "Numeric value only (e.g. 1200)",
+            "currency": "Currency code (e.g. USD, EUR)",
+            "personalized_description": "2 sentences describing the travel route/options and why it's good from this origin.",
+            "travel_time": "Approximate flight/travel time (e.g. '6 hours')"
+        }}
+        """
+        
+        try:
+            response = self.model.generate_content(prompt)
+            text = response.text
+            
+            # Extract JSON
+            json_start = text.find('{')
+            json_end = text.rfind('}') + 1
+            if json_start != -1 and json_end != -1:
+                json_text = text[json_start:json_end]
+                return json.loads(json_text)
+            else:
+                return {"error": "Failed to parse AI response"}
+                
+        except Exception as e:
+            logger.error(f"Error generating personalization: {str(e)}")
+            return {"error": str(e)}
 
     def _determine_currency(self, locations: List[str]) -> tuple[str, str]:
         """Determine currency code and symbol based on participant locations"""

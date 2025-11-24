@@ -1,9 +1,11 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useState, useEffect } from 'react'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Recommendation } from '@/lib/api'
+import { Recommendation, recommendationsAPI } from '@/lib/api'
 import { formatCurrency, convertCurrency } from '@/lib/utils'
-import { MapPin, Calendar, DollarSign, Sparkles, CloudSun, X } from 'lucide-react'
+import { DollarSign, Sparkles, CloudSun, X, Clock } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 interface RecommendationDetailsModalProps {
     isOpen: boolean
@@ -18,6 +20,15 @@ export default function RecommendationDetailsModal({
     recommendation,
     userCurrency
 }: RecommendationDetailsModalProps) {
+    const [isPersonalizing, setIsPersonalizing] = useState(false)
+    const [personalization, setPersonalization] = useState<any>(null)
+
+    useEffect(() => {
+        if (recommendation) {
+            setPersonalization(recommendation.personalization)
+        }
+    }, [recommendation])
+
     if (!recommendation) return null
 
     // Assuming base currency is USD for now, or we could add currency to the recommendation object
@@ -27,6 +38,21 @@ export default function RecommendationDetailsModal({
     const convertedCost = recommendation.estimated_cost
         ? convertCurrency(recommendation.estimated_cost, baseCurrency, userCurrency)
         : null
+
+    const handlePersonalize = async () => {
+        if (!recommendation) return
+        setIsPersonalizing(true)
+        try {
+            const updatedRec = await recommendationsAPI.personalizeRecommendation(recommendation.trip_id, recommendation.id)
+            setPersonalization(updatedRec.personalization)
+            toast.success("Recommendation personalized for you!")
+        } catch (error) {
+            console.error("Personalization error:", error)
+            toast.error("Failed to personalize. Make sure your location is set in your profile.")
+        } finally {
+            setIsPersonalizing(false)
+        }
+    }
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -72,8 +98,29 @@ export default function RecommendationDetailsModal({
                                         About this destination
                                     </h3>
                                     <p className="text-gray-600 leading-relaxed">
-                                        {recommendation.description || "No description available."}
+                                        {personalization?.personalized_description || recommendation.description || "No description available."}
                                     </p>
+                                    {!personalization && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="mt-3 text-purple-600 border-purple-200 hover:bg-purple-50"
+                                            onClick={handlePersonalize}
+                                            disabled={isPersonalizing}
+                                        >
+                                            {isPersonalizing ? (
+                                                <>
+                                                    <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                                                    Personalizing...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Sparkles className="w-4 h-4 mr-2" />
+                                                    Personalize for me
+                                                </>
+                                            )}
+                                        </Button>
+                                    )}
                                 </div>
 
                                 {recommendation.weather_info && (
@@ -95,19 +142,39 @@ export default function RecommendationDetailsModal({
                                         <DollarSign className="w-4 h-4 mr-2" />
                                         Estimated Cost
                                     </h4>
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="text-2xl font-bold text-green-700">
-                                            {formatCurrency(convertedCost, userCurrency)}
-                                        </span>
-                                        {userCurrency !== baseCurrency && (
-                                            <span className="text-sm text-green-600 opacity-75">
-                                                (approx. {formatCurrency(recommendation.estimated_cost, baseCurrency)})
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p className="text-xs text-green-600 mt-1">
-                                        Per person for the entire trip duration
-                                    </p>
+
+                                    {personalization ? (
+                                        <div className="space-y-2">
+                                            <div className="text-sm text-green-800 font-medium">
+                                                From your location:
+                                            </div>
+                                            <p className="text-green-700 text-sm font-bold">
+                                                {personalization.currency} {personalization.estimated_cost_from_origin}
+                                            </p>
+                                            {personalization.travel_time && (
+                                                <div className="flex items-center text-xs text-green-600 mt-1">
+                                                    <Clock className="w-3 h-3 mr-1" />
+                                                    {personalization.travel_time}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-2xl font-bold text-green-700">
+                                                    {formatCurrency(convertedCost, userCurrency)}
+                                                </span>
+                                                {userCurrency !== baseCurrency && (
+                                                    <span className="text-sm text-green-600 opacity-75">
+                                                        (approx. {formatCurrency(recommendation.estimated_cost, baseCurrency)})
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-green-600 mt-1">
+                                                Per person for the entire trip duration
+                                            </p>
+                                        </>
+                                    )}
                                 </div>
 
                                 <div>

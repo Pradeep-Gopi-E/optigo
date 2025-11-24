@@ -26,6 +26,7 @@ class RecommendationResponse(BaseModel):
     image_url: Optional[str] = None
     weather_info: Optional[str] = None
     meta: Optional[dict] = None
+    personalization: Optional[dict] = None
 
     class Config:
         from_attributes = True

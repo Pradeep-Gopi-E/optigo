@@ -102,7 +102,13 @@ export default function TripDetailPage() {
   const fetchPreferences = async () => {
     try {
       const response = await preferencesAPI.getPreferences(tripId)
-      setPreferences(response)
+      const userData = localStorage.getItem('user')
+      const currentUser = userData ? JSON.parse(userData) : null
+
+      if (currentUser) {
+        const userPref = response.find(p => p.user_id === currentUser.id && p.preference_type === 'detailed')
+        setPreferences(userPref || null)
+      }
     } catch (error) {
       console.error('Failed to fetch preferences:', error)
     }

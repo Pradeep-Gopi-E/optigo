@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import uuid
 
 from ..schemas.recommendation import RecommendationCreate, RecommendationResponse, GenerateRecommendationsResponse
@@ -58,6 +58,13 @@ async def get_trip_recommendations(
 
         recommendation_responses = []
         for rec in recommendations:
+            # Check for personalization for current user
+            personalization = None
+            if rec.meta and "personalizations" in rec.meta:
+                user_id = str(current_user.id)
+                if user_id in rec.meta["personalizations"]:
+                    personalization = rec.meta["personalizations"][user_id]
+
             recommendation_response = RecommendationResponse(
                 id=str(rec.id),
                 trip_id=str(rec.trip_id),
@@ -69,7 +76,9 @@ async def get_trip_recommendations(
                 transportation_options=rec.meta.get("transportation_options", []) if rec.meta else [],
                 ai_generated=rec.ai_generated,
                 image_url=rec.image_url,
-                created_at=rec.created_at
+                created_at=rec.created_at,
+                personalization=personalization,
+                meta=rec.meta
             )
             recommendation_responses.append(recommendation_response)
 
@@ -240,7 +249,8 @@ async def create_custom_recommendation(
             transportation_options=new_recommendation.meta.get("transportation_options", []) if new_recommendation.meta else [],
             ai_generated=new_recommendation.ai_generated,
             image_url=new_recommendation.image_url,
-            created_at=new_recommendation.created_at
+            created_at=new_recommendation.created_at,
+            meta=new_recommendation.meta
         )
 
         return recommendation_response
@@ -294,6 +304,13 @@ async def get_recommendation(
                 detail="Recommendation not found"
             )
 
+        # Check for personalization for current user
+        personalization = None
+        if recommendation.meta and "personalizations" in recommendation.meta:
+            user_id = str(current_user.id)
+            if user_id in recommendation.meta["personalizations"]:
+                personalization = recommendation.meta["personalizations"][user_id]
+
         recommendation_response = RecommendationResponse(
             id=str(recommendation.id),
             trip_id=str(recommendation.trip_id),
@@ -305,7 +322,9 @@ async def get_recommendation(
             transportation_options=recommendation.meta.get("transportation_options", []) if recommendation.meta else [],
             ai_generated=recommendation.ai_generated,
             image_url=recommendation.image_url,
-            created_at=recommendation.created_at
+            created_at=recommendation.created_at,
+            personalization=personalization,
+            meta=recommendation.meta
         )
 
         return recommendation_response
@@ -380,4 +399,110 @@ async def delete_recommendation(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete recommendation"
+        )
+
+
+@router.post("/{recommendation_id}/personalize", response_model=RecommendationResponse)
+async def personalize_recommendation(
+    trip_id: str,
+    recommendation_id: str,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Generate personalized details for a recommendation based on user location"""
+    try:
+        # Validate UUIDs
+        try:
+            uuid.UUID(trip_id)
+            uuid.UUID(recommendation_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Recommendation not found"
+            )
+
+        # Check access
+        if not validate_access(trip_id, current_user, db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied to this trip"
+            )
+
+        # Get recommendation
+        recommendation = db.query(Recommendation).filter(
+            Recommendation.id == recommendation_id,
+            Recommendation.trip_id == trip_id
+        ).first()
+
+        if not recommendation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Recommendation not found"
+            )
+
+        # Check if user has location
+        if not current_user.location:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User location not set. Please update your profile."
+            )
+
+        # Generate personalization
+        ai_service = AIService(db)
+        personalization_data = await ai_service.generate_personalization(
+            recommendation.destination_name,
+            current_user.location
+        )
+
+        if "error" in personalization_data:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to generate personalization: {personalization_data['error']}"
+            )
+
+        # Update recommendation meta
+        if not recommendation.meta:
+            recommendation.meta = {}
+        
+        # Initialize personalizations dict if not exists
+        if "personalizations" not in recommendation.meta:
+            recommendation.meta["personalizations"] = {}
+            
+        # Store by user ID
+        recommendation.meta["personalizations"][str(current_user.id)] = personalization_data
+        
+        # Force update of meta field (SQLAlchemy sometimes misses JSON updates)
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(recommendation, "meta")
+        
+        db.commit()
+        db.refresh(recommendation)
+
+        # Construct response with personalization
+        recommendation_response = RecommendationResponse(
+            id=str(recommendation.id),
+            trip_id=str(recommendation.trip_id),
+            destination_name=recommendation.destination_name,
+            description=recommendation.description,
+            estimated_cost=float(recommendation.estimated_cost) if recommendation.estimated_cost else None,
+            activities=recommendation.activities,
+            accommodation_options=recommendation.accommodation_options,
+            transportation_options=recommendation.meta.get("transportation_options", []) if recommendation.meta else [],
+            ai_generated=recommendation.ai_generated,
+            image_url=recommendation.image_url,
+            created_at=recommendation.created_at,
+            personalization=personalization_data,
+            meta=recommendation.meta
+        )
+
+        return recommendation_response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error personalizing recommendation: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to personalize recommendation"
         )

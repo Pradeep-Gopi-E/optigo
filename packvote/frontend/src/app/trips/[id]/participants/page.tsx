@@ -4,31 +4,17 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Mail, UserPlus, Trash2, Shield, Check, X } from 'lucide-react'
-import { tripsAPI } from '@/lib/api'
+import { tripsAPI, TripDetail, Participant } from '@/lib/api'
 import { generateInitials } from '@/lib/utils'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
-
-interface Participant {
-    id: string
-    user_name: string
-    user_email: string
-    role: string
-    status: string
-}
-
-interface Trip {
-    id: string
-    title: string
-    participants: Participant[]
-}
 
 export default function ParticipantsPage() {
     const params = useParams()
     const router = useRouter()
     const tripId = params.id as string
 
-    const [trip, setTrip] = useState<Trip | null>(null)
+    const [trip, setTrip] = useState<TripDetail | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [isInviting, setIsInviting] = useState(false)
     const [inviteEmail, setInviteEmail] = useState('')
@@ -176,19 +162,19 @@ export default function ParticipantsPage() {
                                                         {participant.user_name}
                                                     </div>
                                                     <div className="text-sm text-gray-500">
-                                                        {participant.user_email}
+                                                        {(participant as any).user_email}
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
-                                                {participant.role === 'organizer' ? (
+                                                {participant.role === 'owner' ? (
                                                     <Shield className="w-4 h-4 text-purple-500 mr-2" />
                                                 ) : (
                                                     <div className="w-4 h-4 mr-2" />
                                                 )}
-                                                <span className={`text-sm capitalize ${participant.role === 'organizer' ? 'font-medium text-purple-700' : 'text-gray-600'
+                                                <span className={`text-sm capitalize ${participant.role === 'owner' ? 'font-medium text-purple-700' : 'text-gray-600'
                                                     }`}>
                                                     {participant.role}
                                                 </span>
@@ -205,7 +191,7 @@ export default function ParticipantsPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            {participant.role !== 'organizer' && (
+                                            {participant.role !== 'owner' && (
                                                 <button
                                                     onClick={() => removeParticipant(participant.id)}
                                                     className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full transition-colors"

@@ -66,6 +66,7 @@ export interface Recommendation {
   meta?: any;
   weather_info?: string;
   image_url?: string;
+  personalization?: any;
 }
 
 export interface Vote {
@@ -292,6 +293,12 @@ export const recommendationsAPI = {
     const response = await axios.delete(`${API_BASE_URL}/trips/${tripId}/recommendations/${recId}`, { headers });
     return response.data;
   },
+
+  personalizeRecommendation: async (tripId: string, recId: string) => {
+    const headers = getAuthHeaders();
+    const response = await axios.post(`${API_BASE_URL}/trips/${tripId}/recommendations/${recId}/personalize`, {}, { headers });
+    return response.data;
+  },
 };
 
 // --- Votes API ---
@@ -341,14 +348,14 @@ export const votesAPI = {
 
 // --- Preferences API ---
 export const preferencesAPI = {
-  getPreferences: async (tripId: string): Promise<Preference | null> => {
+  getPreferences: async (tripId: string): Promise<Preference[]> => {
     const headers = getAuthHeaders();
     try {
       const response = await axios.get(`${API_BASE_URL}/trips/${tripId}/preferences`, { headers });
       return response.data;
     } catch (error: any) {
       if (error.response && error.response.status === 404) {
-        return null;
+        return [];
       }
       throw error;
     }
