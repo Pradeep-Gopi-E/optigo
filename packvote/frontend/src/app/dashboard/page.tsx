@@ -285,46 +285,49 @@ export default function DashboardPage() {
                   </div>
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No trips yet</h3>
                   <p className="text-gray-500 mb-6">Start planning your first group adventure!</p>
-                  <Link href="/trips/create" className="btn btn-primary">
+                  <Link href="/trips/create" className="btn btn-primary inline-flex items-center">
                     <Plus className="w-4 h-4 mr-2" />
                     Create Trip
                   </Link>
                 </div>
               ) : (
                 trips.slice(0, 5).map((trip) => (
-                  <div key={trip.id} className="p-6 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getStatusColor(trip.status)}`}>
-                          {getStatusIcon(trip.status)}
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-900">{trip.title}</h4>
-                          <div className="flex items-center text-xs text-gray-500 mt-1">
-                            <Calendar className="w-3 h-3 mr-1" />
-                            {formatDate(trip.start_date)} - {formatDate(trip.end_date)}
+                  <Link
+                    key={trip.id}
+                    href={`/trips/${trip.id}`}
+                    className="block hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getStatusColor(trip.status)}`}>
+                            {getStatusIcon(trip.status)}
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-900">{trip.title}</h4>
+                            <div className="flex items-center text-xs text-gray-500 mt-1">
+                              <Calendar className="w-3 h-3 mr-1" />
+                              {formatDate(trip.start_date)} - {formatDate(trip.end_date)}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <div className="flex -space-x-2">
-                          {/* Placeholder for participants avatars */}
-                          <div className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-600">
-                            {generateInitials(user?.name || '')}
+                        <div className="flex items-center space-x-4">
+                          <div className="flex -space-x-2">
+                            {/* Placeholder for participants avatars */}
+                            <div className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-600">
+                              {generateInitials(user?.name || '')}
+                            </div>
+                          </div>
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(trip.status)}`}>
+                            {trip.status.charAt(0).toUpperCase() + trip.status.slice(1)}
+                          </span>
+                          <div className="text-gray-400 hover:text-gray-600">
+                            <TrendingUp className="w-5 h-5" />
                           </div>
                         </div>
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(trip.status)}`}>
-                          {trip.status.charAt(0).toUpperCase() + trip.status.slice(1)}
-                        </span>
-                        <Link
-                          href={`/trips/${trip.id}`}
-                          className="text-gray-400 hover:text-gray-600"
-                        >
-                          <TrendingUp className="w-5 h-5" />
-                        </Link>
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 ))
               )}
             </div>

@@ -442,35 +442,37 @@ async def personalize_recommendation(
 
         # Check if user has location
         if not current_user.location:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User location not set. Please update your profile."
+             # Return without personalization if no location
+             return RecommendationResponse(
+                id=str(recommendation.id),
+                trip_id=str(recommendation.trip_id),
+                destination_name=recommendation.destination_name,
+                description=recommendation.description,
+                estimated_cost=float(recommendation.estimated_cost) if recommendation.estimated_cost else None,
+                activities=recommendation.activities,
+                accommodation_options=recommendation.accommodation_options,
+                transportation_options=recommendation.meta.get("transportation_options", []) if recommendation.meta else [],
+                ai_generated=recommendation.ai_generated,
+                image_url=recommendation.image_url,
+                created_at=recommendation.created_at,
+                personalization=None,
+                meta=recommendation.meta
             )
 
         # Generate personalization
         ai_service = AIService(db)
         personalization_data = await ai_service.generate_personalization(
-            recommendation.destination_name,
-            current_user.location
+            destination=recommendation.destination_name,
+            user_location=current_user.location,
+            currency=current_user.preferred_currency or "USD"
         )
 
-        if "error" in personalization_data:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to generate personalization: {personalization_data['error']}"
-            )
-
-        # Update recommendation meta
+        # Store in meta
         if not recommendation.meta:
             recommendation.meta = {}
         
-        # Initialize personalizations dict if not exists
-        if "personalizations" not in recommendation.meta:
-            recommendation.meta["personalizations"] = {}
-            
-        # Store by user ID
-        recommendation.meta["personalizations"][str(current_user.id)] = personalization_data
-        
+        recommendation.meta["personalization"] = personalization_data
+
         # Force update of meta field (SQLAlchemy sometimes misses JSON updates)
         from sqlalchemy.orm.attributes import flag_modified
         flag_modified(recommendation, "meta")

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { User, Mail, MessageCircle, Save, LogOut, Shield, Bell, Settings, MapPin } from 'lucide-react'
+import { User, Mail, MessageCircle, Save, LogOut, Shield, Bell, Settings, MapPin, Banknote } from 'lucide-react'
 import { authAPI } from '@/lib/api'
 import { validateEmail } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,7 @@ interface UserSettings {
   email: string
   telegram_id?: string
   location?: string
+  preferred_currency?: string
 }
 
 export default function SettingsPage() {
@@ -27,7 +28,8 @@ export default function SettingsPage() {
     name: '',
     email: '',
     telegram_id: '',
-    location: ''
+    location: '',
+    preferred_currency: 'USD'
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -41,7 +43,8 @@ export default function SettingsPage() {
         name: parsedUser.name || '',
         email: parsedUser.email || '',
         telegram_id: parsedUser.telegram_id || '',
-        location: parsedUser.location || ''
+        location: parsedUser.location || '',
+        preferred_currency: parsedUser.preferred_currency || 'USD'
       })
     } else {
       router.push('/auth/login')
@@ -72,7 +75,8 @@ export default function SettingsPage() {
       const updatedUser = await authAPI.updateProfile({
         name: formData.name.trim(),
         telegram_id: formData.telegram_id?.trim() || undefined,
-        location: formData.location || undefined
+        location: formData.location || undefined,
+        preferred_currency: formData.preferred_currency
       })
 
       // Update local storage
@@ -196,6 +200,40 @@ export default function SettingsPage() {
                               {country}
                             </option>
                           ))}
+                        </select>
+                        <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Preferred Currency */}
+                    <div>
+                      <label htmlFor="preferred_currency" className="block text-sm font-medium text-gray-700 mb-2">
+                        Preferred Currency
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Banknote className="h-5 w-5 text-gray-400" />
+                        </div>
+                        <select
+                          id="preferred_currency"
+                          name="preferred_currency"
+                          value={formData.preferred_currency}
+                          onChange={handleInputChange}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-10 appearance-none"
+                        >
+                          <option value="USD">USD ($)</option>
+                          <option value="EUR">EUR (€)</option>
+                          <option value="GBP">GBP (£)</option>
+                          <option value="JPY">JPY (¥)</option>
+                          <option value="AUD">AUD (A$)</option>
+                          <option value="CAD">CAD (C$)</option>
+                          <option value="CHF">CHF (Fr)</option>
+                          <option value="CNY">CNY (¥)</option>
+                          <option value="INR">INR (₹)</option>
                         </select>
                         <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
                           <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

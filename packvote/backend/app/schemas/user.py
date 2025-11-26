@@ -20,6 +20,7 @@ class UserUpdate(BaseModel):
     name: Optional[str] = None
     telegram_id: Optional[str] = None
     location: Optional[str] = None
+    preferred_currency: Optional[str] = None
 
 
 class UserResponse(BaseModel):
@@ -28,6 +29,7 @@ class UserResponse(BaseModel):
     name: str
     telegram_id: Optional[str] = None
     location: Optional[str] = None
+    preferred_currency: str = "USD"
     is_active: bool
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

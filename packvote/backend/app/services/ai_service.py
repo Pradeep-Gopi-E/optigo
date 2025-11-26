@@ -8,6 +8,16 @@ from google.generativeai.types import HarmCategory, HarmBlockThreshold
 from ..models import Preference, Recommendation, Trip, User
 from ..config import settings
 from ..schemas.preference import PreferenceType
+import json
+import logging
+from typing import List, Dict, Any, Optional
+from sqlalchemy.orm import Session
+import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
+
+from ..models import Preference, Recommendation, Trip, User
+from ..config import settings
+from ..schemas.preference import PreferenceType
 from ..models import Participant
 from .unsplash_service import unsplash_service
 
@@ -126,17 +136,16 @@ class AIService:
 
         except Exception as e:
             logger.error(f"Error generating AI recommendations: {str(e)}")
-            print(f"DEBUG: Error generating AI recommendations: {str(e)}")
             import traceback
             traceback.print_exc()
             self._log_debug(traceback.format_exc())
             return await self._generate_fallback_recommendations(trip_id)
 
-    async def generate_personalization(self, destination: str, user_location: str) -> Dict[str, Any]:
+    async def generate_personalization(self, destination: str, user_location: str, currency: str = "USD") -> Dict[str, Any]:
         """
         Generate personalized cost and description for a specific user location
         """
-        self._log_debug(f"Generating personalization for {destination} from {user_location}")
+        self._log_debug(f"Generating personalization for {destination} from {user_location} in {currency}")
         
         if not self.model:
             return {
@@ -154,7 +163,7 @@ class AIService:
         Return ONLY valid JSON in this format:
         {{
             "estimated_cost_from_origin": "Numeric value only (e.g. 1200)",
-            "currency": "Currency code (e.g. USD, EUR)",
+            "currency": "{currency}",
             "personalized_description": "2 sentences describing the travel route/options and why it's good from this origin.",
             "travel_time": "Approximate flight/travel time (e.g. '6 hours')"
         }}
@@ -195,7 +204,7 @@ class AIService:
 
     def _build_ai_prompt(self, trip: Trip, preferences: List[Preference], participant_locations: List[str]) -> str:
         """Build enhanced AI prompt with trip and preference data"""
-
+        
         # Group preferences by type
         preference_data = {}
         for pref in preferences:
@@ -206,7 +215,14 @@ class AIService:
         expected_size = trip.expected_participants or participant_count
         
         locations_str = ", ".join(participant_locations)
-        currency_code, currency_symbol = self._determine_currency(participant_locations)
+        
+        # Use trip creator's preferred currency
+        currency_code = trip.created_by_user.preferred_currency if trip.created_by_user else "USD"
+        currency_symbol = "$" # Default, could be mapped if needed, but code is most important for AI
+        if currency_code == "EUR": currency_symbol = "€"
+        elif currency_code == "GBP": currency_symbol = "£"
+        elif currency_code == "JPY": currency_symbol = "¥"
+        elif currency_code == "INR": currency_symbol = "₹"
 
         # Extract detailed preferences
         detailed = preference_data.get("detailed", {})
@@ -231,16 +247,16 @@ TRIP CONTEXT:
 GROUP PREFERENCES:
 """
         if detailed:
-            if detailed.get("accommodation_type"): prompt += f"• Accommodation: {detailed['accommodation_type']}\\n"
-            if detailed.get("accommodation_amenities"): prompt += f"• Amenities: {', '.join(detailed['accommodation_amenities'])}\\n"
-            if detailed.get("must_have_activities"): prompt += f"• Must-Do: {', '.join(detailed['must_have_activities'])}\\n"
-            if detailed.get("avoid_activities"): prompt += f"• Avoid: {', '.join(detailed['avoid_activities'])}\\n"
-            if detailed.get("dietary_restrictions"): prompt += f"• Dietary: {', '.join(detailed['dietary_restrictions'])}\\n"
-            if detailed.get("trip_description"): prompt += f"• Notes: {detailed['trip_description']}\\n"
+            if detailed.get("accommodation_type"): prompt += f"• Accommodation: {detailed['accommodation_type']}\n"
+            if detailed.get("accommodation_amenities"): prompt += f"• Amenities: {', '.join(detailed['accommodation_amenities'])}\n"
+            if detailed.get("must_have_activities"): prompt += f"• Must-Do: {', '.join(detailed['must_have_activities'])}\n"
+            if detailed.get("avoid_activities"): prompt += f"• Avoid: {', '.join(detailed['avoid_activities'])}\n"
+            if detailed.get("dietary_restrictions"): prompt += f"• Dietary: {', '.join(detailed['dietary_restrictions'])}\n"
+            if detailed.get("trip_description"): prompt += f"• Notes: {detailed['trip_description']}\n"
 
         if vibe:
              vibes = ', '.join(vibe.get('trip_vibe', []))
-             prompt += f"• Vibe: {vibes}\\n"
+             prompt += f"• Vibe: {vibes}\n"
 
         prompt += """
 PRIORITY LOGIC (Follow EXACTLY):

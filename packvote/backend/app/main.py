@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
 import sys
+from sqlalchemy import text
 
 from .config import settings
 from .utils.database import engine, Base
@@ -61,8 +62,6 @@ async def global_exception_handler(request, exc):
     )
 
 
-
-
 # Root endpoint
 @app.get("/")
 async def root():
@@ -72,6 +71,7 @@ async def root():
         "version": settings.APP_VERSION,
         "docs_url": "/docs" if settings.DEBUG else None
     }
+
 # Create database tables
 @app.on_event("startup")
 async def startup_event():
@@ -80,6 +80,18 @@ async def startup_event():
         #Base.metadata.drop_all(bind=engine) # Temporarily enabled to fix schema
         Base.metadata.create_all(bind=engine)
         logger.info("Database tables recreated successfully")
+        
+        # Manual migration for preferred_currency
+        try:
+            with engine.connect() as conn:
+                # Check if column exists to avoid error logs if possible, or just rely on exception
+                conn.execute(text("ALTER TABLE users ADD COLUMN preferred_currency VARCHAR(3) DEFAULT 'USD' NOT NULL"))
+                conn.commit()
+                logger.info("Added preferred_currency column")
+        except Exception as e:
+            # It's expected to fail if column exists
+            logger.info(f"Migration note: {e}")
+            
     except Exception as e:
         logger.error(f"Error creating database tables: {str(e)}")
 

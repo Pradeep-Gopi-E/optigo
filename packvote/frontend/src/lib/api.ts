@@ -183,7 +183,7 @@ export const authAPI = {
     return response.data;
   },
 
-  updateProfile: async (data: { name?: string; telegram_id?: string; location?: string }) => {
+  updateProfile: async (data: { name?: string; telegram_id?: string; location?: string; preferred_currency?: string }) => {
     const headers = getAuthHeaders();
     const response = await axios.put(`${API_BASE_URL}/auth/me`, data, { headers });
     return response.data;
