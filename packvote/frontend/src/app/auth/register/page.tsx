@@ -10,6 +10,7 @@ import { authAPI } from '@/lib/api'
 import { RegisterData } from '@/types/auth'
 import toast from 'react-hot-toast'
 import { countries } from '@/lib/countries'
+import { Logo } from '@/components/ui/logo'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -59,10 +60,7 @@ export default function RegisterPage() {
       {/* Logo and Header */}
       <div className="text-center mb-8">
         <div className="flex justify-center items-center mb-4">
-          <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
-            <Users className="w-7 h-7 text-white" />
-          </div>
-          <span className="ml-3 text-2xl font-bold text-gray-900">PackVote</span>
+          <Logo />
         </div>
         <h1 className="text-2xl font-bold text-gray-900">Create an Account</h1>
         <p className="text-gray-600 mt-2">Sign up to start planning your trips</p>
@@ -211,14 +209,14 @@ export default function RegisterPage() {
               </span>
             ) : (
               <span className="flex items-center">
-                Sign up
+                Create Account
                 <ArrowRight className="ml-2 h-4 w-4" />
               </span>
             )}
           </button>
         </form>
 
-        {/* Sign In Link */}
+        {/* Login Link */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
             Already have an account?{' '}
@@ -226,31 +224,9 @@ export default function RegisterPage() {
               href="/auth/login"
               className="font-medium text-primary hover:text-primary/600 transition-colors"
             >
-              Sign in
+              Log in
             </Link>
           </p>
-        </div>
-      </div>
-
-      {/* Features */}
-      <div className="mt-8 grid grid-cols-3 gap-4">
-        <div className="text-center">
-          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-            <Users className="w-6 h-6 text-blue-600" />
-          </div>
-          <p className="text-xs text-gray-600">Group Planning</p>
-        </div>
-        <div className="text-center">
-          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-            <Lock className="w-6 h-6 text-green-600" />
-          </div>
-          <p className="text-xs text-gray-600">Fair Voting</p>
-        </div>
-        <div className="text-center">
-          <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
-            <ArrowRight className="w-6 h-6 text-purple-600" />
-          </div>
-          <p className="text-xs text-gray-600">AI Powered</p>
         </div>
       </div>
     </motion.div>

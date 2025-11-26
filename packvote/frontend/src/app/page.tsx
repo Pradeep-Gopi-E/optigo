@@ -1,200 +1,117 @@
+'use client'
+
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowRight, Users, Brain, Vote, MessageCircle } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { motion } from 'framer-motion'
+import { ArrowRight, LogIn, UserPlus, LayoutDashboard } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { BackgroundBeamsWithCollision } from '@/components/ui/background-beams-with-collision'
+import { Logo } from '@/components/ui/logo'
+import { AnimatedLogo } from '@/components/ui/animated-logo'
 
 export default function HomePage() {
+  const router = useRouter()
+  const [user, setUser] = useState<any>(null)
+
+  useEffect(() => {
+    const userData = localStorage.getItem('user')
+    if (userData) {
+      setUser(JSON.parse(userData))
+    }
+  }, [])
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-background text-foreground overflow-hidden font-body">
       {/* Navigation */}
-      <nav className="container mx-auto px-6 py-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Users className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-bold text-gray-900">PackVote</span>
-          </div>
-          <div className="flex items-center space-x-6">
-            <Link
-              href="/auth/login"
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              Login
-            </Link>
-            <Link
-              href="/auth/register"
-              className="btn btn-primary"
-            >
-              Get Started
-            </Link>
+      <nav className="fixed w-full z-50 top-0 start-0 border-b border-border/40 bg-background/80 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between px-6 py-4">
+          <Link href="/" className="group">
+            <Logo />
+          </Link>
+          <div className="flex md:order-2 space-x-3 md:space-x-4 rtl:space-x-reverse">
+            {user ? (
+              <Button onClick={() => router.push('/dashboard')} className="font-medium shadow-md">
+                <LayoutDashboard className="w-4 h-4 mr-2" />
+                Dashboard
+              </Button>
+            ) : (
+              <>
+                <Button variant="ghost" onClick={() => router.push('/auth/login')} className="font-medium hover:bg-secondary/50">
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Log in
+                </Button>
+                <Button onClick={() => router.push('/auth/register')} className="font-medium shadow-md">
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Sign up
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="container mx-auto px-6 py-16">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-            Plan Group Trips with
-            <span className="text-primary"> AI-Powered</span> Decisions
-          </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-            Make group travel planning simple and fair. Collect preferences,
-            get AI recommendations, and decide with ranked-choice voting.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/auth/register"
-              className="btn btn-primary btn-lg"
-            >
-              Start Planning
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Link>
-            <Link
-              href="/demo"
-              className="btn btn-outline btn-lg"
-            >
-              View Demo
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="container mx-auto px-6 py-16">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
-            How It Works
-          </h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 text-blue-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Create Trip
-              </h3>
-              <p className="text-gray-600">
-                Set up your trip and invite friends to join the planning process.
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <MessageCircle className="w-8 h-8 text-purple-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Collect Preferences
-              </h3>
-              <p className="text-gray-600">
-                Gather preferences through our app or Telegram bot surveys.
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Brain className="w-8 h-8 text-green-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                AI Recommendations
-              </h3>
-              <p className="text-gray-600">
-                Get personalized destination suggestions based on group preferences.
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Vote className="w-8 h-8 text-orange-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Fair Voting
-              </h3>
-              <p className="text-gray-600">
-                Decide together using ranked-choice voting for the most democratic outcome.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Benefits Section */}
-      <section className="bg-gray-50 py-16">
-        <div className="container mx-auto px-6">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
-              Why PackVote?
-            </h2>
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="card p-6">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                  <Brain className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                  AI-Powered Insights
-                </h3>
-                <p className="text-gray-600">
-                  Our AI analyzes group preferences to suggest destinations that everyone will love.
-                </p>
-              </div>
-              <div className="card p-6">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                  <Vote className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                  Fair Decision Making
-                </h3>
-                <p className="text-gray-600">
-                  Ranked-choice voting ensures everyone's preferences are heard and considered.
-                </p>
-              </div>
-              <div className="card p-6">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                  <MessageCircle className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                  Easy Communication
-                </h3>
-                <p className="text-gray-600">
-                  Integrated Telegram bot makes collecting preferences simple and convenient.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="container mx-auto px-6 py-16">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">
-            Ready to Plan Your Next Adventure?
-          </h2>
-          <p className="text-xl text-gray-600 mb-8">
-            Join thousands of groups who have planned memorable trips with PackVote.
-          </p>
-          <Link
-            href="/auth/register"
-            className="btn btn-primary btn-lg"
+      {/* Hero Section with Background Beams */}
+      <BackgroundBeamsWithCollision className="min-h-screen flex flex-col justify-center">
+        <div className="relative z-20 container mx-auto px-4 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="max-w-4xl mx-auto"
           >
-            Start Your Free Trip
-            <ArrowRight className="w-5 h-5 ml-2" />
-          </Link>
+            <div className="flex justify-center mb-8">
+              <AnimatedLogo size="lg" />
+            </div>
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-heading font-bold mb-8 leading-tight tracking-tight text-foreground drop-shadow-sm">
+              Travel Together, <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-accent to-primary animate-gradient-x">
+                Decide Together.
+              </span>
+            </h1>
+            <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed font-light">
+              Plan group trips without the chaos. Collaborate on itineraries, vote on destinations, and make memories that last a lifetime.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
+              {user ? (
+                <Button
+                  size="lg"
+                  onClick={() => router.push('/dashboard')}
+                  className="text-lg px-10 py-7 rounded-full shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 bg-primary hover:bg-primary/90"
+                >
+                  Go to Dashboard <ArrowRight className="ml-2 w-5 h-5" />
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    size="lg"
+                    onClick={() => router.push('/auth/register')}
+                    className="text-lg px-10 py-7 rounded-full shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 bg-primary hover:bg-primary/90"
+                  >
+                    Start Planning Free <ArrowRight className="ml-2 w-5 h-5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={() => router.push('/auth/login')}
+                    className="text-lg px-10 py-7 rounded-full border-2 border-primary/20 hover:border-primary/50 bg-background/50 backdrop-blur-sm hover:bg-secondary/50 transition-all duration-300"
+                  >
+                    Log In
+                  </Button>
+                </>
+              )}
+            </div>
+          </motion.div>
         </div>
-      </section>
+      </BackgroundBeamsWithCollision>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
-        <div className="container mx-auto px-6">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="flex items-center space-x-2 mb-4 md:mb-0">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <Users className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold">PackVote</span>
-            </div>
-            <div className="text-center md:text-right">
-              <p className="text-gray-400">
-                © 2024 PackVote. Making group travel planning better.
-              </p>
-            </div>
-          </div>
+      <footer className="absolute bottom-0 w-full py-6 border-t border-border/40 bg-background/80 backdrop-blur-md z-20">
+        <div className="container mx-auto px-4 text-center">
+          <p className="text-sm text-muted-foreground">
+            © {new Date().getFullYear()} Cohere. All rights reserved.
+          </p>
         </div>
       </footer>
     </div>

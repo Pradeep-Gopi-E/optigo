@@ -7,6 +7,7 @@ import { Plus, Users, Calendar, Vote, Brain, MapPin, TrendingUp, LogOut, Menu } 
 import { tripsAPI, Trip } from '@/lib/api'
 import { formatDate, generateInitials } from '@/lib/utils'
 import Link from 'next/link'
+import { Logo } from '@/components/ui/logo'
 
 interface User {
   id: string
@@ -97,10 +98,7 @@ export default function DashboardPage() {
           {/* Logo */}
           <div className="flex items-center justify-between h-16 px-6 border-b">
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <Users className="w-5 h-5 text-white" />
-              </div>
-              <span className="ml-2 text-xl font-bold text-gray-900">PackVote</span>
+              <Logo />
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -208,15 +206,15 @@ export default function DashboardPage() {
               transition={{ duration: 0.5, delay: 0.1 }}
               className="bg-white rounded-xl shadow-sm p-6"
             >
-              <div className="flex items-center">
+              <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                   <MapPin className="w-6 h-6 text-blue-600" />
                 </div>
-                <div className="ml-4">
-                  <p className="text-2xl font-bold text-gray-900">{trips.length}</p>
-                  <p className="text-sm text-gray-600">Total Trips</p>
-                </div>
+                <span className="text-2xl font-bold text-gray-900">
+                  {trips.filter(t => t.status === 'planning').length}
+                </span>
               </div>
+              <h3 className="text-gray-600 font-medium">Planning</h3>
             </motion.div>
 
             <motion.div
@@ -225,17 +223,15 @@ export default function DashboardPage() {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="bg-white rounded-xl shadow-sm p-6"
             >
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <Users className="w-6 h-6 text-green-600" />
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <Vote className="w-6 h-6 text-orange-600" />
                 </div>
-                <div className="ml-4">
-                  <p className="text-2xl font-bold text-gray-900">
-                    {trips.reduce((sum, trip) => sum + trip.participant_count, 0)}
-                  </p>
-                  <p className="text-sm text-gray-600">Total Participants</p>
-                </div>
+                <span className="text-2xl font-bold text-gray-900">
+                  {trips.filter(t => t.status === 'voting').length}
+                </span>
               </div>
+              <h3 className="text-gray-600 font-medium">Voting Active</h3>
             </motion.div>
 
             <motion.div
@@ -244,17 +240,15 @@ export default function DashboardPage() {
               transition={{ duration: 0.5, delay: 0.3 }}
               className="bg-white rounded-xl shadow-sm p-6"
             >
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <Vote className="w-6 h-6 text-purple-600" />
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  <Calendar className="w-6 h-6 text-green-600" />
                 </div>
-                <div className="ml-4">
-                  <p className="text-2xl font-bold text-gray-900">
-                    {trips.filter(t => t.status === 'voting').length}
-                  </p>
-                  <p className="text-sm text-gray-600">Active Votes</p>
-                </div>
+                <span className="text-2xl font-bold text-gray-900">
+                  {trips.filter(t => t.status === 'confirmed').length}
+                </span>
               </div>
+              <h3 className="text-gray-600 font-medium">Confirmed</h3>
             </motion.div>
 
             <motion.div
@@ -263,102 +257,78 @@ export default function DashboardPage() {
               transition={{ duration: 0.5, delay: 0.4 }}
               className="bg-white rounded-xl shadow-sm p-6"
             >
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <Brain className="w-6 h-6 text-orange-600" />
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Brain className="w-6 h-6 text-purple-600" />
                 </div>
-                <div className="ml-4">
-                  <p className="text-2xl font-bold text-gray-900">
-                    {trips.filter(t => t.status === 'confirmed').length}
-                  </p>
-                  <p className="text-sm text-gray-600">Confirmed Trips</p>
-                </div>
+                <span className="text-2xl font-bold text-gray-900">
+                  {trips.length}
+                </span>
               </div>
+              <h3 className="text-gray-600 font-medium">Total Trips</h3>
             </motion.div>
           </div>
 
           {/* Recent Trips */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-          >
-            <div className="bg-white rounded-xl shadow-sm">
-              <div className="px-6 py-4 border-b">
-                <h3 className="text-lg font-semibold text-gray-900">Recent Trips</h3>
-              </div>
-              <div className="divide-y">
-                {trips.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <MapPin className="w-8 h-8 text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No trips yet</h3>
-                    <p className="text-gray-600 mb-4">Start planning your first group trip!</p>
-                    <Link
-                      href="/trips/create"
-                      className="btn btn-primary"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create Your First Trip
-                    </Link>
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Recent Trips</h3>
+              <Link href="/trips" className="text-primary hover:text-primary/80 text-sm font-medium">
+                View all
+              </Link>
+            </div>
+            <div className="divide-y">
+              {trips.length === 0 ? (
+                <div className="p-8 text-center">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <MapPin className="w-8 h-8 text-gray-400" />
                   </div>
-                ) : (
-                  trips.slice(0, 5).map((trip) => (
-                    <Link
-                      key={trip.id}
-                      href={`/trips/${trip.id}`}
-                      className="block hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center mb-2">
-                              <h4 className="text-lg font-medium text-gray-900 mr-3">
-                                {trip.title}
-                              </h4>
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(trip.status)}`}>
-                                {getStatusIcon(trip.status)}
-                                <span className="ml-1">{trip.status}</span>
-                              </span>
-                            </div>
-                            <div className="flex items-center text-sm text-gray-600 space-x-4">
-                              {trip.destination && (
-                                <div className="flex items-center">
-                                  <MapPin className="w-4 h-4 mr-1" />
-                                  {trip.destination}
-                                </div>
-                              )}
-                              <div className="flex items-center">
-                                <Users className="w-4 h-4 mr-1" />
-                                {trip.participant_count} participants
-                              </div>
-                              {trip.start_date && (
-                                <div className="flex items-center">
-                                  <Calendar className="w-4 h-4 mr-1" />
-                                  {formatDate(trip.start_date)}
-                                </div>
-                              )}
-                            </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No trips yet</h3>
+                  <p className="text-gray-500 mb-6">Start planning your first group adventure!</p>
+                  <Link href="/trips/create" className="btn btn-primary">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Trip
+                  </Link>
+                </div>
+              ) : (
+                trips.slice(0, 5).map((trip) => (
+                  <div key={trip.id} className="p-6 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getStatusColor(trip.status)}`}>
+                          {getStatusIcon(trip.status)}
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-900">{trip.title}</h4>
+                          <div className="flex items-center text-xs text-gray-500 mt-1">
+                            <Calendar className="w-3 h-3 mr-1" />
+                            {formatDate(trip.start_date)} - {formatDate(trip.end_date)}
                           </div>
                         </div>
                       </div>
-                    </Link>
-                  ))
-                )}
-              </div>
-              {trips.length > 5 && (
-                <div className="px-6 py-4 border-t">
-                  <Link
-                    href="/trips"
-                    className="text-sm font-medium text-primary hover:text-primary/600"
-                  >
-                    View all trips →
-                  </Link>
-                </div>
+                      <div className="flex items-center space-x-4">
+                        <div className="flex -space-x-2">
+                          {/* Placeholder for participants avatars */}
+                          <div className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-600">
+                            {generateInitials(user?.name || '')}
+                          </div>
+                        </div>
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(trip.status)}`}>
+                          {trip.status.charAt(0).toUpperCase() + trip.status.slice(1)}
+                        </span>
+                        <Link
+                          href={`/trips/${trip.id}`}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <TrendingUp className="w-5 h-5" />
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
-          </motion.div>
+          </div>
         </main>
       </div>
     </div>

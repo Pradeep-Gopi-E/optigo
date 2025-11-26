@@ -53,7 +53,7 @@ export default function DemoPage() {
                                 </span>
                             </h1>
                             <p className="text-xl text-gray-600 mb-10">
-                                Experience how PackVote uses AI and ranked-choice voting to help your group agree on the perfect destination in minutes.
+                                Experience how Cohere uses AI and ranked-choice voting to help your group agree on the perfect destination in minutes.
                             </p>
                             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                                 <Link

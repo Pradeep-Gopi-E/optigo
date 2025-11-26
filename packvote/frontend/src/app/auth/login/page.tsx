@@ -9,6 +9,7 @@ import { Eye, EyeOff, Mail, Lock, ArrowRight, Users } from 'lucide-react'
 import { authAPI } from '@/lib/api'
 import { LoginData } from '@/types/auth'
 import toast from 'react-hot-toast'
+import { Logo } from '@/components/ui/logo'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -39,9 +40,6 @@ export default function LoginPage() {
     }
   }
 
-  // --- THIS IS THE ONLY PART THAT CHANGES ---
-  // We return the <motion.div> directly.
-  // The outer wrapper is now handled by app/auth/layout.tsx
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -52,10 +50,7 @@ export default function LoginPage() {
       {/* Logo and Header */}
       <div className="text-center mb-8">
         <div className="flex justify-center items-center mb-4">
-          <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
-            <Users className="w-7 h-7 text-white" />
-          </div>
-          <span className="ml-3 text-2xl font-bold text-gray-900">PackVote</span>
+          <Logo />
         </div>
         <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>
         <p className="text-gray-600 mt-2">Sign in to continue planning your trips</p>

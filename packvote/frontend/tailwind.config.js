@@ -6,9 +6,7 @@ module.exports = {
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     './src/**/*.{js,ts,jsx,tsx,mdx}',
-    './index.html', // Add this if you are using plain HTML or Vite
   ],
-  prefix: "",
   theme: {
     container: {
       center: true,
@@ -19,11 +17,10 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        // This adds the 'Inter' font you imported in your CSS
-        sans: ['Inter', 'sans-serif'],
+        heading: ['var(--font-heading)', 'serif'],
+        body: ['var(--font-body)', 'sans-serif'],
       },
       colors: {
-        // These colors map to the CSS variables in your :root
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
@@ -59,19 +56,11 @@ module.exports = {
         },
       },
       borderRadius: {
-        // This maps to the --radius CSS variable
         lg: `var(--radius)`,
         md: `calc(var(--radius) - 2px)`,
         sm: `calc(var(--radius) - 4px)`,
       },
       keyframes: {
-        // This adds the loading-dots animation from your CSS
-        "loading-dots": {
-          "0%, 20%": { content: "'.'" },
-          "40%": { content: "'..'" },
-          "60%, 100%": { content: "'...'" },
-        },
-        // Standard animations for shadcn/ui components
         "accordion-down": {
           from: { height: "0" },
           to: { height: "var(--radix-accordion-content-height)" },
@@ -80,16 +69,17 @@ module.exports = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "fade-in-up": {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        }
       },
       animation: {
-        "loading-dots": "loading-dots 1.5s infinite",
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-in-up": "fade-in-up 0.5s ease-out forwards",
       },
     },
   },
-  plugins: [
-    // This plugin is required for shadcn/ui animations
-    require("tailwindcss-animate")
-  ],
+  plugins: [require("tailwindcss-animate")],
 }

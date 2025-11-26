@@ -22,7 +22,8 @@ import {
   CheckCircle2,
   ArrowRight,
   Pencil,
-  Globe
+  Globe,
+  Compass
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -160,14 +161,6 @@ export default function TripDetailPage() {
     return formatCurrencyUtil(amount, currency)
   }
 
-  const formatBudgetRange = (min?: number | null, max?: number | null) => {
-    if (!min && !max) return 'Not set'
-    if (min && !max) return `From ${formatCurrency(min)}`
-    if (!min && max) return `Up to ${formatCurrency(max)}`
-    if (min === max) return formatCurrency(min!)
-    return `${formatCurrency(min!)} - ${formatCurrency(max!)}`
-  }
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'planning': return 'bg-blue-100 text-blue-800'
@@ -180,7 +173,7 @@ export default function TripDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     )
@@ -193,45 +186,48 @@ export default function TripDetailPage() {
   const canAddRecommendation = isOwner || trip.allow_member_recommendations
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-12 relative">
+    <div className="min-h-screen bg-background pb-12 relative">
+      <div className="noise-overlay" />
+
       {/* Hero Section */}
-      <div className="relative h-[300px] w-full bg-gray-900">
+      <div className="relative h-[40vh] min-h-[400px] w-full bg-gray-900 overflow-hidden">
         <img
           src={trip.destination ? `https://source.unsplash.com/1600x900/?${trip.destination},travel` : "https://source.unsplash.com/1600x900/?travel,vacation"}
           alt={trip.title}
-          className="w-full h-full object-cover opacity-60"
+          className="w-full h-full object-cover opacity-70 scale-105 animate-fade-in-up"
+          style={{ animationDuration: '1.5s' }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-gray-900/90 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
 
-        <div className="absolute bottom-0 left-0 right-0 p-6 z-20 text-white container mx-auto max-w-7xl">
-          <div className="flex justify-between items-end">
-            <div>
-              <Badge className="mb-2 bg-primary/80 hover:bg-primary/90 backdrop-blur-sm text-white border-none">
-                {trip.status.charAt(0).toUpperCase() + trip.status.slice(1)}
+        <div className="absolute bottom-0 left-0 right-0 p-8 z-20 container mx-auto max-w-7xl">
+          <div className="flex flex-col md:flex-row justify-between items-end gap-6">
+            <div className="animate-fade-in-up">
+              <Badge className="mb-4 bg-primary/90 backdrop-blur-md text-white border-none px-3 py-1 text-sm font-medium tracking-wide uppercase">
+                {trip.status} Phase
               </Badge>
-              <h1 className="text-4xl font-bold mb-2 text-white">{trip.title}</h1>
-              <div className="flex items-center gap-4 text-sm opacity-90 text-white">
+              <h1 className="text-5xl md:text-7xl font-heading font-bold mb-4 text-foreground drop-shadow-sm leading-tight">{trip.title}</h1>
+              <div className="flex flex-wrap items-center gap-6 text-foreground/90 font-medium">
                 {trip.destination && (
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2 bg-background/30 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
                     <MapPin className="h-4 w-4" />
                     {trip.destination}
                   </div>
                 )}
                 {trip.start_date && (
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2 bg-background/30 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
                     <Calendar className="h-4 w-4" />
                     {formatDate(trip.start_date)} - {trip.end_date ? formatDate(trip.end_date) : 'TBD'}
                   </div>
                 )}
               </div>
             </div>
-            <div className="flex gap-2">
-              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-md px-2 py-1 border border-white/20">
-                <Globe className="h-3 w-3 text-white/70" />
+            <div className="flex gap-3 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+              <div className="flex items-center gap-2 bg-background/40 backdrop-blur-md rounded-lg px-3 py-2 border border-white/10 shadow-lg">
+                <Globe className="h-4 w-4 text-foreground/70" />
                 <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="bg-transparent text-white text-sm font-medium focus:outline-none cursor-pointer [&>option]:text-black border-none outline-none appearance-none pr-2"
+                  className="bg-transparent text-foreground text-sm font-medium focus:outline-none cursor-pointer border-none outline-none appearance-none pr-2"
                 >
                   <option value="USD">USD ($)</option>
                   <option value="EUR">EUR (€)</option>
@@ -244,67 +240,77 @@ export default function TripDetailPage() {
               </div>
               <Button
                 variant="secondary"
-                className="gap-2"
+                className="gap-2 shadow-lg hover:shadow-xl transition-all"
                 onClick={() => setIsShareModalOpen(true)}
               >
                 <Share2 className="h-4 w-4" />
                 Share
               </Button>
               {trip.status === 'planning' && (
-                <Button onClick={() => router.push(`/trips/${tripId}/preferences`)}>
+                <Button onClick={() => router.push(`/trips/${tripId}/preferences`)} className="shadow-lg">
                   Edit Preferences
                 </Button>
               )}
             </div>
           </div>
         </div>
-        <Link href="/dashboard" className="absolute top-6 left-6 z-30 p-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full text-white transition-colors">
-          <ArrowLeft className="w-6 h-6" />
+        <Link href="/dashboard" className="absolute top-6 left-6 z-30 p-3 bg-background/20 hover:bg-background/40 backdrop-blur-md rounded-full text-foreground transition-all border border-white/10 group">
+          <ArrowLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />
         </Link>
       </div>
 
       {/* Trip Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex space-x-1 rounded-xl bg-gray-200 p-1 mb-6 overflow-x-auto">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
+        <div className="flex space-x-2 p-1 mb-10 overflow-x-auto border-b border-border/50 pb-1">
           {tabs.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
               className={cn(
-                'w-full rounded-lg py-2.5 text-sm font-medium leading-5 transition-all duration-200 whitespace-nowrap px-4',
+                'relative px-6 py-3 text-sm font-medium transition-all duration-200 whitespace-nowrap',
                 activeTab === tab
-                  ? 'bg-white text-primary shadow'
-                  : 'text-gray-600 hover:bg-white/[0.12] hover:text-primary'
+                  ? 'text-primary font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {activeTab === tab && (
+                <motion.div
+                  layoutId="activeTab"
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+                />
+              )}
             </button>
           ))}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-8">
             {activeTab === 'overview' && (
-              <div className="space-y-6">
-                <Card>
+              <div className="space-y-8 animate-fade-in-up">
+                <Card className="border-border/50 shadow-lg">
                   <CardHeader>
-                    <CardTitle>Trip Details</CardTitle>
+                    <CardTitle className="font-heading text-2xl">Trip Details</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-6">
                     <div>
-                      <h3 className="font-semibold mb-1">Description</h3>
-                      <p className="text-gray-600">{trip.description || 'No description provided.'}</p>
+                      <h3 className="font-semibold mb-2 text-foreground/80">Description</h3>
+                      <p className="text-muted-foreground leading-relaxed">{trip.description || 'No description provided.'}</p>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <h3 className="font-semibold mb-1">Budget Range</h3>
-                        <p className="text-gray-600">
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="bg-secondary/20 p-4 rounded-lg border border-border/50">
+                        <h3 className="font-semibold mb-1 text-foreground/80 flex items-center gap-2">
+                          <DollarSign className="w-4 h-4 text-primary" /> Budget Range
+                        </h3>
+                        <p className="text-lg font-medium text-foreground">
                           {formatCurrency(trip.budget_min)} - {formatCurrency(trip.budget_max)}
                         </p>
                       </div>
-                      <div>
-                        <h3 className="font-semibold mb-1">Expected Participants</h3>
-                        <p className="text-gray-600">{trip.expected_participants || 'Not specified'}</p>
+                      <div className="bg-secondary/20 p-4 rounded-lg border border-border/50">
+                        <h3 className="font-semibold mb-1 text-foreground/80 flex items-center gap-2">
+                          <Users className="w-4 h-4 text-primary" /> Participants
+                        </h3>
+                        <p className="text-lg font-medium text-foreground">{trip.expected_participants || 'Not specified'}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -313,24 +319,24 @@ export default function TripDetailPage() {
             )}
 
             {activeTab === 'participants' && (
-              <Card>
+              <Card className="border-border/50 shadow-lg animate-fade-in-up">
                 <CardHeader>
-                  <CardTitle>Participants ({trip.participants?.length || 0})</CardTitle>
+                  <CardTitle className="font-heading text-2xl">Participants ({trip.participants?.length || 0})</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     {trip.participants?.map((participant) => (
-                      <div key={participant.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                      <div key={participant.id} className="flex items-center justify-between p-4 bg-secondary/10 rounded-xl border border-border/50 hover:border-primary/30 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold shadow-md">
                             {generateInitials(participant.user_name)}
                           </div>
                           <div>
-                            <p className="font-medium">{participant.user_name}</p>
-                            <p className="text-sm text-gray-500 capitalize">{participant.role}</p>
+                            <p className="font-medium text-lg text-foreground">{participant.user_name}</p>
+                            <p className="text-sm text-muted-foreground capitalize">{participant.role}</p>
                           </div>
                         </div>
-                        <Badge variant={participant.status === 'joined' ? 'default' : 'secondary'}>
+                        <Badge variant={participant.status === 'joined' ? 'default' : 'secondary'} className="capitalize">
                           {participant.status}
                         </Badge>
                       </div>
@@ -341,11 +347,11 @@ export default function TripDetailPage() {
             )}
 
             {activeTab === 'preferences' && (
-              <div className="space-y-6">
-                <Card>
+              <div className="space-y-8 animate-fade-in-up">
+                <Card className="border-border/50 shadow-lg">
                   <CardHeader className="flex flex-row items-center justify-between">
                     <div>
-                      <CardTitle>Group Preferences</CardTitle>
+                      <CardTitle className="font-heading text-2xl">Group Preferences</CardTitle>
                       <CardDescription>
                         Preferences used to generate AI recommendations.
                       </CardDescription>
@@ -359,42 +365,42 @@ export default function TripDetailPage() {
                   </CardHeader>
                   <CardContent>
                     {preferences ? (
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <h3 className="font-semibold mb-1 text-sm text-gray-500 uppercase">Vibe</h3>
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="bg-secondary/10 p-4 rounded-xl border border-border/50">
+                            <h3 className="font-semibold mb-3 text-xs text-muted-foreground uppercase tracking-wider">Vibe</h3>
                             <div className="flex flex-wrap gap-2">
                               {preferences.preference_data?.vibe?.map((v: string) => (
-                                <Badge key={v} variant="secondary">{v}</Badge>
+                                <Badge key={v} variant="secondary" className="bg-background/80 backdrop-blur-sm border border-border/50">{v}</Badge>
                               )) || 'Not specified'}
                             </div>
                           </div>
-                          <div>
-                            <h3 className="font-semibold mb-1 text-sm text-gray-500 uppercase">Activities</h3>
+                          <div className="bg-secondary/10 p-4 rounded-xl border border-border/50">
+                            <h3 className="font-semibold mb-3 text-xs text-muted-foreground uppercase tracking-wider">Activities</h3>
                             <div className="flex flex-wrap gap-2">
                               {preferences.preference_data?.activities?.map((a: string) => (
-                                <Badge key={a} variant="outline">{a}</Badge>
+                                <Badge key={a} variant="outline" className="bg-background/50">{a}</Badge>
                               )) || 'Not specified'}
                             </div>
                           </div>
-                          <div>
-                            <h3 className="font-semibold mb-1 text-sm text-gray-500 uppercase">Budget Level</h3>
-                            <p className="font-medium capitalize">{preferences.preference_data?.budget_level || 'Not specified'}</p>
+                          <div className="bg-secondary/10 p-4 rounded-xl border border-border/50">
+                            <h3 className="font-semibold mb-3 text-xs text-muted-foreground uppercase tracking-wider">Budget Level</h3>
+                            <p className="font-medium capitalize text-foreground">{preferences.preference_data?.budget_level || 'Not specified'}</p>
                           </div>
-                          <div>
-                            <h3 className="font-semibold mb-1 text-sm text-gray-500 uppercase">Duration</h3>
-                            <p className="font-medium">{preferences.preference_data?.duration_days ? `${preferences.preference_data.duration_days} days` : 'Not specified'}</p>
+                          <div className="bg-secondary/10 p-4 rounded-xl border border-border/50">
+                            <h3 className="font-semibold mb-3 text-xs text-muted-foreground uppercase tracking-wider">Duration</h3>
+                            <p className="font-medium text-foreground">{preferences.preference_data?.duration_days ? `${preferences.preference_data.duration_days} days` : 'Not specified'}</p>
                           </div>
                         </div>
 
                         {isOwner && (
-                          <div className="pt-4 border-t mt-4">
-                            <div className="bg-blue-50 p-4 rounded-lg flex items-center justify-between">
+                          <div className="pt-6 border-t border-border/50">
+                            <div className="bg-primary/5 p-6 rounded-xl border border-primary/20 flex items-center justify-between">
                               <div>
-                                <h4 className="font-semibold text-blue-900">Want new recommendations?</h4>
-                                <p className="text-sm text-blue-700">Regenerating will replace existing AI recommendations based on these preferences.</p>
+                                <h4 className="font-semibold text-primary mb-1">Want new recommendations?</h4>
+                                <p className="text-sm text-muted-foreground">Regenerating will replace existing AI recommendations.</p>
                               </div>
-                              <Button onClick={() => generateRecommendations(true)} disabled={isGeneratingRecs} size="sm">
+                              <Button onClick={() => generateRecommendations(true)} disabled={isGeneratingRecs} size="sm" className="shadow-md">
                                 {isGeneratingRecs ? (
                                   <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -412,8 +418,8 @@ export default function TripDetailPage() {
                         )}
                       </div>
                     ) : (
-                      <div className="text-center py-8">
-                        <p className="text-gray-500 mb-4">No preferences set yet.</p>
+                      <div className="text-center py-12 bg-secondary/10 rounded-xl border border-dashed border-border">
+                        <p className="text-muted-foreground mb-4">No preferences set yet.</p>
                         {isOwner && (
                           <Button onClick={() => router.push(`/trips/${tripId}/preferences`)}>
                             Set Preferences
@@ -427,18 +433,18 @@ export default function TripDetailPage() {
             )}
 
             {activeTab === 'recommendations' && (
-              <div className="space-y-6">
+              <div className="space-y-8 animate-fade-in-up">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-2xl font-bold">Recommendations</h2>
-                  <div className="flex gap-2">
+                  <h2 className="text-3xl font-heading font-bold text-foreground">Recommendations</h2>
+                  <div className="flex gap-3">
                     {canAddRecommendation && (
-                      <Button onClick={() => setIsCustomRecModalOpen(true)} variant="outline" className="gap-2">
+                      <Button onClick={() => setIsCustomRecModalOpen(true)} variant="outline" className="gap-2 bg-background/50 backdrop-blur-sm">
                         <Plus className="h-4 w-4" />
                         Add Custom
                       </Button>
                     )}
                     {(isOwner || recommendations.length === 0) && (
-                      <Button onClick={() => generateRecommendations(true)} disabled={isGeneratingRecs}>
+                      <Button onClick={() => generateRecommendations(true)} disabled={isGeneratingRecs} className="shadow-lg">
                         {isGeneratingRecs ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -456,19 +462,21 @@ export default function TripDetailPage() {
                 </div>
 
                 {recommendations.length === 0 ? (
-                  <Card className="border-dashed">
-                    <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                      <Sparkles className="h-12 w-12 text-gray-300 mb-4" />
-                      <h3 className="text-lg font-semibold mb-2">No recommendations yet</h3>
-                      <p className="text-gray-500 mb-6 max-w-sm">
+                  <Card className="border-dashed border-2 border-border/60 bg-transparent shadow-none">
+                    <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                      <div className="w-20 h-20 bg-secondary/20 rounded-full flex items-center justify-center mb-6">
+                        <Sparkles className="h-10 w-10 text-primary/50" />
+                      </div>
+                      <h3 className="text-xl font-heading font-semibold mb-2 text-foreground">No recommendations yet</h3>
+                      <p className="text-muted-foreground mb-8 max-w-md">
                         Generate AI recommendations based on group preferences or add your own custom suggestions.
                       </p>
-                      <div className="flex gap-3">
-                        <Button onClick={() => generateRecommendations(true)} disabled={isGeneratingRecs}>
+                      <div className="flex gap-4">
+                        <Button onClick={() => generateRecommendations(true)} disabled={isGeneratingRecs} size="lg">
                           Generate with AI
                         </Button>
                         {canAddRecommendation && (
-                          <Button variant="outline" onClick={() => setIsCustomRecModalOpen(true)}>
+                          <Button variant="outline" onClick={() => setIsCustomRecModalOpen(true)} size="lg">
                             Add Custom
                           </Button>
                         )}
@@ -476,33 +484,34 @@ export default function TripDetailPage() {
                     </CardContent>
                   </Card>
                 ) : (
-                  <div className="grid gap-6">
+                  <div className="grid gap-8">
                     {recommendations.map((rec) => (
                       <Card
                         key={rec.id}
-                        className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer group"
+                        className="overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group border-border/50 bg-card/90 backdrop-blur-sm"
                         onClick={() => handleViewRecommendation(rec)}
                       >
                         <div className="md:flex">
-                          <div className="md:w-1/3 h-48 md:h-auto relative">
+                          <div className="md:w-2/5 h-64 md:h-auto relative overflow-hidden">
                             <img
                               src={rec.image_url || `https://source.unsplash.com/800x600/?${rec.destination_name},travel`}
                               alt={rec.destination_name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                             />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent md:bg-gradient-to-r" />
                             {rec.ai_generated && (
-                              <Badge className="absolute top-2 right-2 bg-purple-500/90 backdrop-blur-sm">
+                              <Badge className="absolute top-4 left-4 bg-primary/90 backdrop-blur-md border-none shadow-lg">
                                 <Sparkles className="w-3 h-3 mr-1" /> AI Pick
                               </Badge>
                             )}
                           </div>
-                          <div className="p-6 md:w-2/3 flex flex-col justify-between">
+                          <div className="p-8 md:w-3/5 flex flex-col justify-between">
                             <div>
-                              <div className="flex justify-between items-start mb-2">
-                                <h3 className="text-xl font-bold group-hover:text-primary transition-colors">{rec.destination_name}</h3>
-                                <div className="flex items-center gap-2">
+                              <div className="flex justify-between items-start mb-4">
+                                <h3 className="text-2xl font-heading font-bold group-hover:text-primary transition-colors text-foreground">{rec.destination_name}</h3>
+                                <div className="flex items-center gap-3">
                                   {rec.estimated_cost && (
-                                    <Badge variant="secondary" className="text-green-700 bg-green-50">
+                                    <Badge variant="secondary" className="text-green-700 bg-green-50/80 backdrop-blur-sm border border-green-100">
                                       {formatCurrency(convertCurrency(rec.estimated_cost, 'USD', currency))}
                                     </Badge>
                                   )}
@@ -516,28 +525,33 @@ export default function TripDetailPage() {
                                         handleEditRecommendation(rec)
                                       }}
                                     >
-                                      <Pencil className="h-4 w-4 text-gray-500" />
+                                      <Pencil className="h-4 w-4 text-muted-foreground" />
                                     </Button>
                                   )}
                                 </div>
                               </div>
-                              <p className="text-gray-600 mb-4 line-clamp-2">{rec.description}</p>
+                              <p className="text-muted-foreground mb-6 line-clamp-2 leading-relaxed">{rec.description}</p>
 
-                              <div className="space-y-3">
+                              <div className="space-y-4">
                                 <div>
-                                  <h4 className="text-sm font-semibold text-gray-900 mb-1">Activities</h4>
+                                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Activities</h4>
                                   <div className="flex flex-wrap gap-2">
                                     {(Array.isArray(rec.activities) ? rec.activities : []).slice(0, 3).map((activity, i) => (
-                                      <Badge key={i} variant="outline" className="bg-gray-50">
+                                      <Badge key={i} variant="outline" className="bg-secondary/30 border-border/50">
                                         {activity}
                                       </Badge>
                                     ))}
                                     {(Array.isArray(rec.activities) ? rec.activities : []).length > 3 && (
-                                      <Badge variant="outline" className="bg-gray-50">+{(Array.isArray(rec.activities) ? rec.activities : []).length - 3}</Badge>
+                                      <Badge variant="outline" className="bg-secondary/30 border-border/50">+{(Array.isArray(rec.activities) ? rec.activities : []).length - 3}</Badge>
                                     )}
                                   </div>
                                 </div>
                               </div>
+                            </div>
+                            <div className="mt-6 pt-6 border-t border-border/50 flex justify-end">
+                              <span className="text-sm font-medium text-primary group-hover:translate-x-1 transition-transform flex items-center">
+                                View Details <ArrowRight className="ml-1 w-4 h-4" />
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -549,26 +563,30 @@ export default function TripDetailPage() {
             )}
 
             {activeTab === 'voting' && (
-              <div className="space-y-6">
-                <Card>
+              <div className="space-y-8 animate-fade-in-up">
+                <Card className="border-border/50 shadow-lg overflow-hidden">
+                  <div className="h-2 bg-gradient-to-r from-primary to-accent" />
                   <CardHeader>
-                    <CardTitle>Voting Session</CardTitle>
+                    <CardTitle className="font-heading text-2xl">Voting Session</CardTitle>
                     <CardDescription>
                       Rank your preferred destinations using Borda Count method.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     {trip.status === 'voting' ? (
-                      <div className="text-center py-8">
-                        <div className="mb-6">
-                          <h3 className="text-lg font-medium mb-2">Voting is Active!</h3>
-                          <p className="text-gray-500">
-                            Please cast your votes to help decide the destination.
+                      <div className="text-center py-12">
+                        <div className="mb-8">
+                          <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                            <Vote className="w-8 h-8 text-primary" />
+                          </div>
+                          <h3 className="text-xl font-bold mb-2 text-foreground">Voting is Active!</h3>
+                          <p className="text-muted-foreground max-w-md mx-auto">
+                            Please cast your votes to help decide the destination. Every vote counts towards the final decision.
                           </p>
                         </div>
                         <Button
                           size="lg"
-                          className="w-full sm:w-auto"
+                          className="w-full sm:w-auto shadow-lg hover:shadow-xl transition-all hover:-translate-y-1"
                           onClick={() => router.push(`/trips/${tripId}/vote`)}
                         >
                           Go to Voting Page
@@ -576,23 +594,23 @@ export default function TripDetailPage() {
                         </Button>
                       </div>
                     ) : trip.status === 'confirmed' ? (
-                      <div className="text-center py-8">
-                        <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium mb-2">Destination Confirmed!</h3>
-                        <p className="text-gray-500 mb-6">
-                          The group has decided on <strong>{trip.destination}</strong>.
+                      <div className="text-center py-12">
+                        <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-6" />
+                        <h3 className="text-2xl font-bold mb-2 text-foreground">Destination Confirmed!</h3>
+                        <p className="text-muted-foreground mb-8 text-lg">
+                          The group has decided on <strong className="text-primary">{trip.destination}</strong>.
                         </p>
-                        <Button variant="outline" onClick={() => router.push(`/trips/${tripId}/results`)}>
+                        <Button variant="outline" size="lg" onClick={() => router.push(`/trips/${tripId}/results`)}>
                           View Results
                         </Button>
                       </div>
                     ) : (
-                      <div className="text-center py-8">
-                        <p className="text-gray-500 mb-4">
+                      <div className="text-center py-12 bg-secondary/10 rounded-xl">
+                        <p className="text-muted-foreground mb-6">
                           Voting has not started yet. Wait for the trip organizer to initiate the voting session.
                         </p>
                         {isOwner && recommendations.length > 0 && (
-                          <Button onClick={() => router.push(`/trips/${tripId}/vote`)}>
+                          <Button onClick={() => router.push(`/trips/${tripId}/vote`)} size="lg" className="shadow-lg">
                             Start Voting
                           </Button>
                         )}
@@ -605,18 +623,18 @@ export default function TripDetailPage() {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="space-y-8">
             {/* Admin Controls */}
             {isOwner && (
-              <Card>
+              <Card className="border-border/50 shadow-md">
                 <CardHeader>
-                  <CardTitle className="text-lg">Admin Controls</CardTitle>
+                  <CardTitle className="text-lg font-heading">Admin Controls</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="member-suggestions">Allow Member Suggestions</Label>
-                      <p className="text-xs text-gray-500">
+                      <Label htmlFor="member-suggestions" className="text-foreground">Allow Member Suggestions</Label>
+                      <p className="text-xs text-muted-foreground">
                         Let members add custom recommendations
                       </p>
                     </div>
@@ -627,7 +645,7 @@ export default function TripDetailPage() {
                     />
                   </div>
 
-                  <div className="pt-2 border-t">
+                  <div className="pt-4 border-t border-border/50">
                     <Button
                       variant="destructive"
                       size="sm"
@@ -643,13 +661,13 @@ export default function TripDetailPage() {
               </Card>
             )}
 
-            <Card>
+            <Card className="border-border/50 shadow-md bg-gradient-to-br from-card to-secondary/20">
               <CardHeader>
-                <CardTitle className="text-lg">Invite Friends</CardTitle>
+                <CardTitle className="text-lg font-heading">Invite Friends</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex gap-2 mb-4">
-                  <Input readOnly value={trip.invite_code || ''} />
+                  <Input readOnly value={trip.invite_code || ''} className="bg-background/50" />
                   <Button size="icon" variant="outline" onClick={() => {
                     navigator.clipboard.writeText(trip.invite_code || '')
                     toast.success('Copied to clipboard')
@@ -657,7 +675,7 @@ export default function TripDetailPage() {
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
-                <Button className="w-full" variant="outline" onClick={() => setIsShareModalOpen(true)}>
+                <Button className="w-full shadow-md" variant="outline" onClick={() => setIsShareModalOpen(true)}>
                   <Share2 className="mr-2 h-4 w-4" />
                   Share Invite Link
                 </Button>

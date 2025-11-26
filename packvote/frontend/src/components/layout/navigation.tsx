@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Menu, X, Users, MapPin, Plus, TrendingUp, LogOut, Settings } from 'lucide-react'
+import { Menu, X, MapPin, Plus, TrendingUp, LogOut, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Logo } from '@/components/ui/logo'
 
 interface User {
   id: string
@@ -39,47 +40,41 @@ export function Navigation({ user, currentPage = 'dashboard' }: NavigationProps)
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black bg-opacity-25 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-background/95 backdrop-blur-md border-r border-border/50 shadow-2xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}>
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-6 border-b">
-            <Link href="/dashboard" className="flex items-center">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <Users className="w-5 h-5 text-white" />
-              </div>
-              <span className="ml-2 text-xl font-bold text-gray-900">PackVote</span>
+          <div className="flex items-center justify-between h-20 px-6 border-b border-border/50">
+            <Link href="/dashboard" className="flex items-center space-x-3">
+              <Logo />
             </Link>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1 rounded-md text-gray-500 hover:text-gray-900"
+              className="lg:hidden p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors"
             >
-              <X className="w-5 h-5" />
+              <X className="w-6 h-6" />
             </button>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2">
+          <nav className="flex-1 px-4 py-8 space-y-2">
             {navigation.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
-                className={`group flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  item.current
-                    ? 'bg-primary text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
+                className={`group flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${item.current
+                  ? 'bg-primary text-primary-foreground shadow-md'
+                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  }`}
               >
-                <item.icon className={`mr-3 h-5 w-5 ${
-                  item.current ? 'text-white' : 'text-gray-400 group-hover:text-gray-500'
-                }`} />
+                <item.icon className={`mr-3 h-5 w-5 ${item.current ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-primary'
+                  }`} />
                 {item.name}
               </Link>
             ))}
@@ -87,16 +82,16 @@ export function Navigation({ user, currentPage = 'dashboard' }: NavigationProps)
 
           {/* User Menu */}
           {user && (
-            <div className="border-t px-4 py-6">
-              <div className="flex items-center mb-4">
-                <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white font-semibold">
+            <div className="border-t border-border/50 px-6 py-6 bg-secondary/10">
+              <div className="flex items-center mb-6">
+                <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center text-white font-bold shadow-md">
                   {user.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="ml-3 flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
+                  <p className="text-sm font-medium text-foreground truncate font-heading">
                     {user.name}
                   </p>
-                  <p className="text-xs text-gray-500 truncate">
+                  <p className="text-xs text-muted-foreground truncate">
                     {user.email}
                   </p>
                 </div>
@@ -105,7 +100,7 @@ export function Navigation({ user, currentPage = 'dashboard' }: NavigationProps)
                 variant="ghost"
                 size="sm"
                 onClick={handleLogout}
-                className="w-full justify-start"
+                className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10"
               >
                 <LogOut className="mr-3 h-4 w-4" />
                 Sign out
@@ -119,11 +114,11 @@ export function Navigation({ user, currentPage = 'dashboard' }: NavigationProps)
       <div className="lg:hidden fixed top-4 left-4 z-30">
         <Button
           variant="outline"
-          size="sm"
+          size="icon"
           onClick={() => setSidebarOpen(true)}
-          className="bg-white shadow-md"
+          className="bg-background/80 backdrop-blur-md shadow-md border-border/50"
         >
-          <Menu className="h-4 w-4" />
+          <Menu className="h-5 w-5" />
         </Button>
       </div>
     </>

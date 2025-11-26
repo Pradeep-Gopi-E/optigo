@@ -1,18 +1,32 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import type { Metadata, Viewport } from 'next'
+import { Fraunces, Outfit } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
 import { Toaster } from 'react-hot-toast'
 
-const inter = Inter({ subsets: ['latin'] })
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  variable: '--font-heading',
+  display: 'swap',
+})
+
+const outfit = Outfit({
+  subsets: ['latin'],
+  variable: '--font-body',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
-  title: 'PackVote - AI-Assisted Group Trip Planner',
-  description: 'Plan group trips with AI recommendations and fair ranked-choice voting',
+  title: 'Cohere - Travel Together, Decide Together',
+  description: 'Plan group trips, vote on destinations, and make decisions together.',
   keywords: ['travel', 'trip planning', 'group travel', 'AI recommendations', 'voting'],
-  authors: [{ name: 'PackVote Team' }],
-  viewport: 'width=device-width, initial-scale=1',
-  themeColor: '#3b82f6',
+  authors: [{ name: 'Cohere Team' }],
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#0f172a',
 }
 
 export default function RootLayout({
@@ -22,7 +36,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${fraunces.variable} ${outfit.variable} font-body antialiased`}>
         <Providers>
           {children}
           <Toaster

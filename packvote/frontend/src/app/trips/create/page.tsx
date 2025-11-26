@@ -5,9 +5,12 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
-import { ArrowLeft, Calendar, MapPin, DollarSign, Save, Brain } from 'lucide-react'
+import { ArrowLeft, Calendar, MapPin, DollarSign, Save, Brain, Compass } from 'lucide-react'
 import { tripsAPI } from '@/lib/api'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 
 interface TripFormData {
   title: string
@@ -37,7 +40,6 @@ export default function CreateTripPage() {
   const onSubmit = async (data: TripFormData) => {
     setIsLoading(true)
     try {
-      // Explicitly construct payload to avoid sending "name"
       const tripData = {
         title: data.title,
         description: data.description || null,
@@ -50,7 +52,7 @@ export default function CreateTripPage() {
       }
 
       const response = await tripsAPI.createTrip(tripData)
-      toast.success('Trip created successfully! Redirecting...')
+      toast.success('Journey initiated! Redirecting...')
 
       setTimeout(() => {
         router.push(`/trips/${response.id}`)
@@ -79,241 +81,234 @@ export default function CreateTripPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background relative">
+      <div className="noise-overlay" />
+
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <Link href="/trips" className="mr-4">
-                <ArrowLeft className="w-5 h-5 text-gray-600 hover:text-gray-900" />
-              </Link>
-              <h1 className="text-xl font-semibold text-gray-900">Create New Trip</h1>
-            </div>
+      <header className="relative z-10 border-b border-border/40 bg-background/80 backdrop-blur-md sticky top-0">
+        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center">
+            <Link href="/trips" className="mr-4 p-2 hover:bg-secondary rounded-full transition-colors">
+              <ArrowLeft className="w-5 h-5 text-foreground" />
+            </Link>
+            <h1 className="text-xl font-heading font-bold text-foreground">New Adventure</h1>
           </div>
         </div>
       </header>
 
       {/* Form Content */}
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="relative z-10 container mx-auto px-6 py-12 max-w-3xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="bg-white rounded-xl shadow-sm p-8"
         >
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+          <Card className="border-border/50 shadow-xl">
+            <CardHeader>
+              <CardTitle className="text-3xl font-heading">Plan Your Journey</CardTitle>
+              <CardDescription className="text-lg">Start by defining the basics of your next group adventure.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
 
-            {/* Basic Information */}
-            <div>
-              <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                <MapPin className="w-5 h-5 mr-2 text-primary" />
-                Basic Information
-              </h2>
-              <div className="grid grid-cols-1 gap-6">
-                {/* Trip Title */}
-                <div>
-                  <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-                    Trip Title *
-                  </label>
-                  <input
-                    {...register('title', {
-                      required: 'Trip title is required',
-                      minLength: { value: 3, message: 'Title must be at least 3 characters' },
-                    })}
-                    type="text"
-                    id="title"
-                    className="input w-full"
-                    placeholder="Summer Vacation 2024"
-                  />
-                  {errors.title && (
-                    <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
-                  )}
-                </div>
+                {/* Basic Information */}
+                <div className="space-y-6">
+                  <div className="flex items-center text-primary mb-4">
+                    <Compass className="w-5 h-5 mr-2" />
+                    <h3 className="font-heading font-semibold text-lg">The Essentials</h3>
+                  </div>
 
-                {/* Description */}
-                <div>
-                  <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    {...register('description')}
-                    id="description"
-                    rows={4}
-                    className="input w-full resize-none"
-                    placeholder="Describe your trip..."
-                  />
-                </div>
-
-                {/* Destination */}
-                <div>
-                  <label htmlFor="destination" className="block text-sm font-medium text-gray-700 mb-2">
-                    Destination
-                  </label>
-                  <input
-                    {...register('destination')}
-                    type="text"
-                    id="destination"
-                    className="input w-full"
-                    placeholder="Paris, France"
-                  />
-                </div>
-
-                {/* Expected Participants */}
-                <div>
-                  <label htmlFor="expected_participants" className="block text-sm font-medium text-gray-700 mb-2">
-                    Expected Number of Participants
-                  </label>
-                  <input
-                    {...register('expected_participants', {
-                      min: { value: 1, message: 'Must have at least 1 participant' },
-                      max: { value: 100, message: 'Maximum 100 participants' },
-                      valueAsNumber: true,
-                    })}
-                    type="number"
-                    id="expected_participants"
-                    className="input w-full"
-                    placeholder="5"
-                  />
-                  {errors.expected_participants && (
-                    <p className="mt-1 text-sm text-red-600">{errors.expected_participants.message}</p>
-                  )}
-                  <p className="mt-1 text-sm text-gray-500">Helps AI generate better recommendations for your group size</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Dates */}
-            <div>
-              <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                <Calendar className="w-5 h-5 mr-2 text-primary" />
-                Travel Dates
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="start_date" className="block text-sm font-medium text-gray-700 mb-2">
-                    Start Date
-                  </label>
-                  <input
-                    {...register('start_date')}
-                    type="date"
-                    id="start_date"
-                    className="input w-full"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="end_date" className="block text-sm font-medium text-gray-700 mb-2">
-                    End Date
-                  </label>
-                  <input
-                    {...register('end_date')}
-                    type="date"
-                    id="end_date"
-                    className="input w-full"
-                  />
-                  {isEndDateInvalid() && (
-                    <p className="mt-1 text-sm text-red-600">End date must be after start date</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Budget */}
-            <div>
-              <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                <DollarSign className="w-5 h-5 mr-2 text-primary" />
-                Budget (Optional)
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="budget_min" className="block text-sm font-medium text-gray-700 mb-2">
-                    Minimum Budget per Person
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <DollarSign className="h-5 w-5 text-gray-400" />
+                  <div className="grid gap-6">
+                    <div>
+                      <label htmlFor="title" className="block text-sm font-medium text-foreground mb-2">
+                        Trip Title *
+                      </label>
+                      <Input
+                        {...register('title', {
+                          required: 'Trip title is required',
+                          minLength: { value: 3, message: 'Title must be at least 3 characters' },
+                        })}
+                        id="title"
+                        placeholder="e.g., Summer in Tuscany"
+                        className="text-lg"
+                      />
+                      {errors.title && (
+                        <p className="mt-1 text-sm text-destructive">{errors.title.message}</p>
+                      )}
                     </div>
-                    <input
-                      {...register('budget_min', {
-                        min: { value: 0, message: 'Budget must be positive' },
-                        valueAsNumber: true,
-                      })}
-                      type="number"
-                      id="budget_min"
-                      className="input pl-10 w-full"
-                      placeholder="0"
-                    />
+
+                    <div>
+                      <label htmlFor="description" className="block text-sm font-medium text-foreground mb-2">
+                        Description
+                      </label>
+                      <textarea
+                        {...register('description')}
+                        id="description"
+                        rows={3}
+                        className="input w-full resize-none min-h-[100px]"
+                        placeholder="What's the vibe? Relaxing, adventurous, or a mix?"
+                      />
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div>
+                        <label htmlFor="destination" className="block text-sm font-medium text-foreground mb-2">
+                          Destination (Optional)
+                        </label>
+                        <div className="relative">
+                          <MapPin className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
+                          <Input
+                            {...register('destination')}
+                            id="destination"
+                            className="pl-10"
+                            placeholder="Paris, France"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label htmlFor="expected_participants" className="block text-sm font-medium text-foreground mb-2">
+                          Group Size
+                        </label>
+                        <Input
+                          {...register('expected_participants', {
+                            min: { value: 1, message: 'Must have at least 1 participant' },
+                            max: { value: 100, message: 'Maximum 100 participants' },
+                            valueAsNumber: true,
+                          })}
+                          type="number"
+                          id="expected_participants"
+                          placeholder="5"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label htmlFor="budget_max" className="block text-sm font-medium text-gray-700 mb-2">
-                    Maximum Budget per Person
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <DollarSign className="h-5 w-5 text-gray-400" />
+                <div className="h-px bg-border/50" />
+
+                {/* Dates */}
+                <div className="space-y-6">
+                  <div className="flex items-center text-primary mb-4">
+                    <Calendar className="w-5 h-5 mr-2" />
+                    <h3 className="font-heading font-semibold text-lg">When</h3>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="start_date" className="block text-sm font-medium text-foreground mb-2">
+                        Start Date
+                      </label>
+                      <Input
+                        {...register('start_date')}
+                        type="date"
+                        id="start_date"
+                      />
                     </div>
-                    <input
-                      {...register('budget_max', {
-                        min: { value: 0, message: 'Budget must be positive' },
-                        valueAsNumber: true,
-                      })}
-                      type="number"
-                      id="budget_max"
-                      className="input pl-10 w-full"
-                      placeholder="0"
-                    />
+                    <div>
+                      <label htmlFor="end_date" className="block text-sm font-medium text-foreground mb-2">
+                        End Date
+                      </label>
+                      <Input
+                        {...register('end_date')}
+                        type="date"
+                        id="end_date"
+                      />
+                      {isEndDateInvalid() && (
+                        <p className="mt-1 text-sm text-destructive">End date must be after start date</p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {isBudgetInvalid() && (
-                <p className="mt-1 text-sm text-red-600">Maximum budget must be greater than minimum budget</p>
-              )}
-            </div>
+                <div className="h-px bg-border/50" />
 
-            {/* AI Helper */}
-            <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200">
-              <div className="flex items-start">
-                <Brain className="w-6 h-6 text-purple-600 mt-1 mr-3 flex-shrink-0" />
-                <div>
-                  <h3 className="font-medium text-gray-900 mb-2">AI-Powered Planning</h3>
-                  <p className="text-sm text-gray-600 mb-3">
-                    After your trip is created, our AI will generate personalized recommendations based on group preferences!
-                  </p>
+                {/* Budget */}
+                <div className="space-y-6">
+                  <div className="flex items-center text-primary mb-4">
+                    <DollarSign className="w-5 h-5 mr-2" />
+                    <h3 className="font-heading font-semibold text-lg">Budget Per Person</h3>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="budget_min" className="block text-sm font-medium text-foreground mb-2">
+                        Minimum
+                      </label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
+                        <Input
+                          {...register('budget_min', {
+                            min: { value: 0, message: 'Budget must be positive' },
+                            valueAsNumber: true,
+                          })}
+                          type="number"
+                          id="budget_min"
+                          className="pl-10"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="budget_max" className="block text-sm font-medium text-foreground mb-2">
+                        Maximum
+                      </label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
+                        <Input
+                          {...register('budget_max', {
+                            min: { value: 0, message: 'Budget must be positive' },
+                            valueAsNumber: true,
+                          })}
+                          type="number"
+                          id="budget_max"
+                          className="pl-10"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  {isBudgetInvalid() && (
+                    <p className="mt-1 text-sm text-destructive">Maximum budget must be greater than minimum budget</p>
+                  )}
                 </div>
-              </div>
-            </div>
 
-            {/* Actions */}
-            <div className="flex justify-end space-x-4 pt-6 border-t">
-              <Link href="/trips" className="btn btn-outline">
-                Cancel
-              </Link>
+                {/* AI Helper */}
+                <div className="bg-secondary/30 rounded-lg p-6 border border-secondary/50 flex items-start space-x-4">
+                  <div className="p-2 bg-background rounded-lg shadow-sm">
+                    <Brain className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-semibold text-foreground mb-1">AI Curator Active</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Our AI will use these details to craft personalized itineraries and find hidden gems that match your group's vibe.
+                    </p>
+                  </div>
+                </div>
 
-              <button
-                type="submit"
-                disabled={isLoading || isEndDateInvalid() || isBudgetInvalid()}
-                className="btn btn-primary flex items-center disabled:opacity-50"
-              >
-                {isLoading ? (
-                  <span className="inline-flex items-center">
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Creating Trip...
-                  </span>
-                ) : (
-                  <span className="flex items-center">
-                    <Save className="w-4 h-4 mr-2" />
-                    Create Trip
-                  </span>
-                )}
-              </button>
-            </div>
-          </form>
+                {/* Actions */}
+                <div className="flex justify-end space-x-4 pt-6">
+                  <Link href="/trips">
+                    <Button variant="ghost">Cancel</Button>
+                  </Link>
+
+                  <Button
+                    type="submit"
+                    disabled={isLoading || isEndDateInvalid() || isBudgetInvalid()}
+                    className="px-8"
+                  >
+                    {isLoading ? (
+                      <>Creating...</>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Create Trip
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
         </motion.div>
       </main>
     </div>
