@@ -31,9 +31,8 @@ export default function RecommendationDetailsModal({
 
     if (!recommendation) return null
 
-    // Assuming base currency is USD for now, or we could add currency to the recommendation object
-    // For this implementation, we'll assume the estimated_cost is in USD as per our backend default
-    const baseCurrency = 'USD'
+    // Use currency from AI recommendation if available, otherwise default to USD
+    const baseCurrency = recommendation.meta?.currency || 'USD'
 
     const convertedCost = recommendation.estimated_cost
         ? convertCurrency(recommendation.estimated_cost, baseCurrency, userCurrency)

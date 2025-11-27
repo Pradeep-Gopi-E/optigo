@@ -1,24 +1,13 @@
-import json
-import logging
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
-
-from ..models import Preference, Recommendation, Trip, User
-from ..config import settings
-from ..schemas.preference import PreferenceType
 import json
 import logging
-from typing import List, Dict, Any, Optional
-from sqlalchemy.orm import Session
-import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
-from ..models import Preference, Recommendation, Trip, User
+from ..models import Preference, Recommendation, Trip, User, Participant
 from ..config import settings
 from ..schemas.preference import PreferenceType
-from ..models import Participant
 from .unsplash_service import unsplash_service
 
 logger = logging.getLogger(__name__)
@@ -186,20 +175,34 @@ class AIService:
             logger.error(f"Error generating personalization: {str(e)}")
             return {"error": str(e)}
 
-    def _determine_currency(self, locations: List[str]) -> tuple[str, str]:
-        """Determine currency code and symbol based on participant locations"""
-        # Simple heuristic - can be expanded
-        text = " ".join(locations).lower()
-        
+    def get_currency_for_location(self, location: str) -> tuple[str, str]:
+        """Determine currency code and symbol for a single location"""
+        if not location:
+            return 'USD', '$'
+            
+        text = location.lower()
         if any(x in text for x in ['uk', 'united kingdom', 'london', 'england', 'scotland', 'wales']):
             return 'GBP', '£'
-        if any(x in text for x in ['eu', 'europe', 'france', 'germany', 'italy', 'spain', 'netherlands', 'ireland', 'austria', 'belgium']):
+        if any(x in text for x in ['eu', 'europe', 'france', 'germany', 'italy', 'spain', 'netherlands', 'ireland', 'austria', 'belgium', 'portugal', 'greece', 'finland']):
             return 'EUR', '€'
-        if any(x in text for x in ['japan', 'tokyo', 'osaka']):
+        if any(x in text for x in ['japan', 'tokyo', 'osaka', 'kyoto']):
             return 'JPY', '¥'
-        if any(x in text for x in ['india', 'delhi', 'mumbai', 'bangalore']):
+        if any(x in text for x in ['india', 'delhi', 'mumbai', 'bangalore', 'chennai', 'kolkata']):
             return 'INR', '₹'
+        if any(x in text for x in ['australia', 'sydney', 'melbourne']):
+            return 'AUD', 'A$'
+        if any(x in text for x in ['canada', 'toronto', 'vancouver']):
+            return 'CAD', 'C$'
             
+        return 'USD', '$'
+
+    def _determine_currency(self, locations: List[str]) -> tuple[str, str]:
+        """Determine currency code and symbol based on participant locations"""
+        # Use the first non-USD currency found, or default to USD
+        for loc in locations:
+            code, symbol = self.get_currency_for_location(loc)
+            if code != 'USD':
+                return code, symbol
         return 'USD', '$'
 
     def _build_ai_prompt(self, trip: Trip, preferences: List[Preference], participant_locations: List[str]) -> str:
@@ -211,23 +214,18 @@ class AIService:
             preference_data[pref.preference_type.value] = pref.preference_data
 
         # Get participant count
-        participant_count = len(participant_locations)
-        expected_size = trip.expected_participants or participant_count
-        
-        locations_str = ", ".join(participant_locations)
-        
-        # Use trip creator's preferred currency
-        currency_code = trip.created_by_user.preferred_currency if trip.created_by_user else "USD"
-        currency_symbol = "$" # Default, could be mapped if needed, but code is most important for AI
-        if currency_code == "EUR": currency_symbol = "€"
-        elif currency_code == "GBP": currency_symbol = "£"
-        elif currency_code == "JPY": currency_symbol = "¥"
-        elif currency_code == "INR": currency_symbol = "₹"
+        expected_size = trip.expected_participants or "Unknown"
 
-        # Extract detailed preferences
-        detailed = preference_data.get("detailed", {})
-        vibe = preference_data.get("vibe", {})
+        # Determine Currency
+        currency_code, currency_symbol = self._determine_currency(participant_locations)
         
+        # Format locations
+        locations_str = ", ".join(participant_locations) if participant_locations else "Various"
+
+        # Extract preference types
+        detailed = preference_data.get('detailed', {})
+        vibe = preference_data.get('vibe', {})
+
         # Determine User Intent
         specific_location = trip.destination if trip.destination and trip.destination.lower() != "open" else None
         
@@ -247,12 +245,12 @@ TRIP CONTEXT:
 GROUP PREFERENCES:
 """
         if detailed:
-            if detailed.get("accommodation_type"): prompt += f"• Accommodation: {detailed['accommodation_type']}\n"
-            if detailed.get("accommodation_amenities"): prompt += f"• Amenities: {', '.join(detailed['accommodation_amenities'])}\n"
-            if detailed.get("must_have_activities"): prompt += f"• Must-Do: {', '.join(detailed['must_have_activities'])}\n"
-            if detailed.get("avoid_activities"): prompt += f"• Avoid: {', '.join(detailed['avoid_activities'])}\n"
-            if detailed.get("dietary_restrictions"): prompt += f"• Dietary: {', '.join(detailed['dietary_restrictions'])}\n"
-            if detailed.get("trip_description"): prompt += f"• Notes: {detailed['trip_description']}\n"
+            if detailed.get("accommodation_type"): prompt += f"• Accommodation: {detailed.get('accommodation_type')}\n"
+            if detailed.get("accommodation_amenities"): prompt += f"• Amenities: {', '.join(detailed.get('accommodation_amenities', []))}\n"
+            if detailed.get("must_have_activities"): prompt += f"• Must-Do: {', '.join(detailed.get('must_have_activities', []))}\n"
+            if detailed.get("avoid_activities"): prompt += f"• Avoid: {', '.join(detailed.get('avoid_activities', []))}\n"
+            if detailed.get("dietary_restrictions"): prompt += f"• Dietary: {', '.join(detailed.get('dietary_restrictions', []))}\n"
+            if detailed.get("trip_description"): prompt += f"• Notes: {detailed.get('trip_description')}\n"
 
         if vibe:
              vibes = ', '.join(vibe.get('trip_vibe', []))
@@ -276,32 +274,24 @@ PRIORITY LOGIC (Follow EXACTLY):
    - Different continents.
    - Different climates/vibes.
 
-4. JUSTIFY RELEVANCE:
-   - Every recommendation must explain WHY it fits the specific user intent.
-
-CRITICAL REQUIREMENTS:
-1. TOP ATTRACTIONS: Include 5 specific, real landmarks/experiences.
-2. LOGISTICS: Consider participant origins ({locations_str}) for accessibility and cost.
-3. FORMAT: Return ONLY valid JSON.
-
-JSON SCHEMA:
+Return ONLY valid JSON in this format:
 {{
   "recommendations": [
     {{
       "destination": "City, Country",
-      "continent": "Continent Name",
-      "experience_type": "beach|mountain|city|cultural|adventure",
       "description": "2-3 sentences why perfect for THIS group",
-      "estimated_cost_per_person": "$X,XXX (Average)",
-      "cost_breakdown": {{
-        "User Name (Location)": "$X,XXX",
-        "User Name 2 (Location)": "$X,XXX"
-      }},
+      "estimated_cost_per_person": "{currency_symbol}X,XXX (Average)",
       "highlights": ["Attraction 1", "Attraction 2", "Attraction 3", "Attraction 4", "Attraction 5"],
       "best_for": "Type of travelers",
       "weather_info": "Expected weather during specific travel dates",
       "activities": ["activity1", "activity2", "activity3", "activity4"],
       "accommodation_options": ["Specific hotel/area 1", "Specific hotel/area 2"],
+      "continent": "Continent Name",
+      "experience_type": "beach|mountain|city|cultural|adventure",
+      "cost_breakdown": {{
+        "User Name (Location)": "{currency_symbol}X,XXX",
+        "User Name 2 (Location)": "{currency_symbol}X,XXX"
+      }},
       "transportation_notes": "How to get there and around",
       "match_reason": "EXPLICIT explanation of how this fits the user's specific intent (Priority 4)"
     }}
@@ -309,6 +299,7 @@ JSON SCHEMA:
 }}
 
 Generate 3-5 recommendations based on the Priority Logic.
+IMPORTANT: Use the key "destination" for the place name. DO NOT use "location".
 """
         return prompt
 
@@ -324,11 +315,23 @@ Generate 3-5 recommendations based on the Priority Logic.
                 else:
                     rec_dict = rec_data
 
+                # Detect currency from cost string
+                cost_str = rec_dict.get("estimated_cost_per_person", "")
+                currency_code = "USD" # Default
+                if "€" in cost_str or "EUR" in cost_str:
+                    currency_code = "EUR"
+                elif "£" in cost_str or "GBP" in cost_str:
+                    currency_code = "GBP"
+                elif "¥" in cost_str or "JPY" in cost_str:
+                    currency_code = "JPY"
+                elif "₹" in cost_str or "INR" in cost_str:
+                    currency_code = "INR"
+
                 recommendation = Recommendation(
                     trip_id=trip_id,
-                    destination_name=rec_dict.get("destination", "Unknown Destination"),
+                    destination_name=rec_dict.get("destination") or rec_dict.get("location") or "Unknown Destination",
                     description=rec_dict.get("description", ""),
-                    estimated_cost=self._parse_cost(rec_dict.get("estimated_cost_per_person")),
+                    estimated_cost=self._parse_cost(cost_str),
                     activities=rec_dict.get("activities", [])[:10],
                     accommodation_options=rec_dict.get("accommodation_options", []),
                     # transportation_options removed from here as it's not in the model
@@ -340,7 +343,8 @@ Generate 3-5 recommendations based on the Priority Logic.
                         "match_reason": rec_dict.get("match_reason"),
                         "best_for": rec_dict.get("best_for"),
                         "highlights": rec_dict.get("highlights"),
-                        "transportation_options": [rec_dict.get("transportation_notes", "")]
+                        "transportation_options": [rec_dict.get("transportation_notes", "")],
+                        "currency": currency_code
                     },
                     ai_generated=True
                 )
@@ -349,6 +353,7 @@ Generate 3-5 recommendations based on the Priority Logic.
                 image_url = await unsplash_service.get_photo_url(recommendation.destination_name)
                 if image_url:
                     recommendation.image_url = image_url
+
 
                 self.db.add(recommendation)
                 created_recommendations.append(recommendation)
@@ -404,18 +409,6 @@ Generate 3-5 recommendations based on the Priority Logic.
             },
             {
                 "destination": "Kyoto, Japan",
-                "description": "Immerse in ancient traditions, stunning temples, and serene gardens.",
-                "estimated_cost_per_person": "$2,500",
-                "highlights": ["Kinkaku-ji", "Fushimi Inari-taisha", "Arashiyama Bamboo Grove"],
-                "weather_info": "Mild, 18°C",
-                "activities": ["Temple visits", "Tea ceremonies"],
-                "continent": "Asia", 
-                "experience_type": "Cultural",
-                "cost_breakdown": {"User 1 (New York)": "$3000", "User 2 (London)": "$2800"},
-                "match_reason": "Rich cultural experience",
-                "best_for": "History buffs and serene travelers",
-                "accommodation_options": ["Ryokan in Gion", "Kyoto Hotel Okura"],
-                "transportation_notes": "Fly into KIX, take train to Kyoto, use buses/subway"
             }
         ]
         return await self._create_recommendations_from_ai(trip_id, fallback_recs)

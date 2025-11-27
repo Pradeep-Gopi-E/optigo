@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict
+from pydantic import BaseModel, Field, model_validator
+from typing import List, Optional, Dict, Any
 
 class AIRecommendation(BaseModel):
     destination: str = Field(..., description="City, Country")
@@ -15,6 +15,14 @@ class AIRecommendation(BaseModel):
     continent: str = Field(..., description="Continent of the destination")
     experience_type: str = Field(..., description="Type of experience (beach, mountain, city, etc.)")
     cost_breakdown: Dict[str, str] = Field(..., description="Estimated cost per person for each participant location")
+
+    @model_validator(mode='before')
+    @classmethod
+    def map_location_to_destination(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if 'location' in data and 'destination' not in data:
+                data['destination'] = data['location']
+        return data
 
 class AIResponse(BaseModel):
     recommendations: List[AIRecommendation]

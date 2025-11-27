@@ -4,15 +4,16 @@ from typing import List, Optional
 from datetime import datetime
 import uuid
 import secrets
+import logging
 
 from ..schemas.trip import TripCreate, TripUpdate, TripResponse, TripDetailResponse, InviteRequest, JoinTripResponse
 from ..schemas.participant import ParticipantResponse, ParticipantRole, ParticipantStatus
 from ..services.auth import AuthService
 from ..models import Trip, Participant, User
+from ..models.trip import TripStatus
 from ..models.participant import ParticipantRole as ParticipantRoleModel, ParticipantStatus as ParticipantStatusModel
 from ..utils.database import get_db
 from ..api.auth import get_current_user
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -30,43 +31,15 @@ async def get_user_trips(
     try:
         # Get trips where user is creator or participant
         trips_query = db.query(Trip).filter(
-            (Trip.created_by == str(current_user.id)) |
-            (Trip.participants.any(user_id=str(current_user.id), status="joined"))
+            (Trip.created_by == current_user.id) |
+            (Trip.participants.any(user_id=current_user.id, status="joined"))
         ).order_by(Trip.created_at.desc()).offset(skip).limit(limit)
 
         trips = trips_query.all()
-
-        trip_responses = []
-        for trip in trips:
-            participant_count = db.query(Participant).filter(
-                Participant.trip_id == trip.id,
-                Participant.status == "joined"
-            ).count()
-
-            trip_response = TripResponse(
-                id=str(trip.id),
-                title=trip.title,
-                description=trip.description,
-                destination=trip.destination,
-                start_date=trip.start_date,
-                end_date=trip.end_date,
-                budget_min=float(trip.budget_min) if trip.budget_min else None,
-                budget_max=float(trip.budget_max) if trip.budget_max else None,
-                expected_participants=trip.expected_participants,
-                invite_code=trip.invite_code,
-                status=trip.status.value,
-                allow_member_recommendations=trip.allow_member_recommendations,
-                created_by=str(trip.created_by),
-                created_at=trip.created_at,
-                updated_at=trip.updated_at,
-                participant_count=participant_count
-            )
-            trip_responses.append(trip_response)
-
-        return trip_responses
+        return trips
 
     except Exception as e:
-        logger.error(f"Error getting user trips: {str(e)}")
+        logger.error(f"Error fetching trips: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve trips"
@@ -94,11 +67,8 @@ async def create_trip(
             if trip_data.budget_min >= trip_data.budget_max:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Minimum budget must be less than maximum budget"
+                    detail="Budget min must be less than budget max"
                 )
-
-        # Generate unique invite code
-        invite_code = secrets.token_urlsafe(12)
         
         # Create trip
         new_trip = Trip(
@@ -110,46 +80,29 @@ async def create_trip(
             budget_min=trip_data.budget_min,
             budget_max=trip_data.budget_max,
             expected_participants=trip_data.expected_participants,
-            invite_code=invite_code,
+            created_by=current_user.id,
+            invite_code=secrets.token_urlsafe(8),
+            status=TripStatus.planning,
             allow_member_recommendations=trip_data.allow_member_recommendations,
-            created_by=str(current_user.id)
+            image_url=trip_data.image_url
         )
-
+        
         db.add(new_trip)
         db.commit()
         db.refresh(new_trip)
 
-        # Add creator as owner participant
-        owner_participant = Participant(
-            trip_id=str(new_trip.id),
-            user_id=str(current_user.id),
+        # Add creator as participant
+        participant = Participant(
+            trip_id=new_trip.id,
+            user_id=current_user.id,
             role=ParticipantRoleModel.owner,
             status=ParticipantStatusModel.joined,
             joined_at=datetime.utcnow()
         )
-        db.add(owner_participant)
+        db.add(participant)
         db.commit()
 
-        trip_response = TripResponse(
-            id=str(new_trip.id),
-            title=new_trip.title,
-            description=new_trip.description,
-            destination=new_trip.destination,
-            start_date=new_trip.start_date,
-            end_date=new_trip.end_date,
-            budget_min=float(new_trip.budget_min) if new_trip.budget_min else None,
-            budget_max=float(new_trip.budget_max) if new_trip.budget_max else None,
-            expected_participants=new_trip.expected_participants,
-            invite_code=new_trip.invite_code,
-            status=new_trip.status.value,
-            allow_member_recommendations=new_trip.allow_member_recommendations,
-            created_by=str(new_trip.created_by),
-            created_at=new_trip.created_at,
-            updated_at=new_trip.updated_at,
-            participant_count=1
-        )
-
-        return trip_response
+        return new_trip
 
     except HTTPException:
         raise
@@ -232,7 +185,8 @@ async def get_trip(
             created_by=str(trip.created_by),
             created_at=trip.created_at,
             updated_at=trip.updated_at,
-            participants=participant_responses
+            participants=participant_responses,
+            image_url=trip.image_url
         )
 
         return trip_detail
@@ -289,49 +243,13 @@ async def update_trip(
                     detail="Start date must be before end date"
                 )
 
-        # Validate budget
-        if trip_update.budget_min and trip_update.budget_max:
-            if trip_update.budget_min >= trip_update.budget_max:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Minimum budget must be less than maximum budget"
-                )
-
         # Update fields
-        update_data = trip_update.model_dump(exclude_unset=True)
-        for field, value in update_data.items():
-            if hasattr(trip, field):
-                setattr(trip, field, value)
-
+        for field, value in trip_update.dict(exclude_unset=True).items():
+            setattr(trip, field, value)
+            
         db.commit()
         db.refresh(trip)
-
-        # Get participant count
-        participant_count = db.query(Participant).filter(
-            Participant.trip_id == trip_id,
-            Participant.status == "joined"
-        ).count()
-
-        trip_response = TripResponse(
-            id=str(trip.id),
-            title=trip.title,
-            description=trip.description,
-            destination=trip.destination,
-            start_date=trip.start_date,
-            end_date=trip.end_date,
-            budget_min=float(trip.budget_min) if trip.budget_min else None,
-            budget_max=float(trip.budget_max) if trip.budget_max else None,
-            expected_participants=trip.expected_participants,
-            invite_code=trip.invite_code,
-            status=trip.status.value,
-            allow_member_recommendations=trip.allow_member_recommendations,
-            created_by=str(trip.created_by),
-            created_at=trip.created_at,
-            updated_at=trip.updated_at,
-            participant_count=participant_count
-        )
-
-        return trip_response
+        return trip
 
     except HTTPException:
         raise

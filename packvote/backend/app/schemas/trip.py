@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 from enum import Enum
+from uuid import UUID
 
 from .participant import ParticipantResponse
 
@@ -23,6 +24,7 @@ class TripCreate(BaseModel):
     budget_max: Optional[float] = Field(None, ge=0)
     expected_participants: Optional[int] = Field(None, ge=1, le=100)
     allow_member_recommendations: Optional[bool] = False
+    image_url: Optional[str] = None
 
 
 class TripUpdate(BaseModel):
@@ -36,10 +38,11 @@ class TripUpdate(BaseModel):
     expected_participants: Optional[int] = Field(None, ge=1, le=100)
     status: Optional[TripStatus] = None
     allow_member_recommendations: Optional[bool] = None
+    image_url: Optional[str] = None
 
 
 class TripResponse(BaseModel):
-    id: str
+    id: UUID
     title: str
     description: Optional[str] = None
     destination: Optional[str] = None
@@ -51,10 +54,10 @@ class TripResponse(BaseModel):
     invite_code: Optional[str] = None
     status: TripStatus
     allow_member_recommendations: bool
-    created_by: str
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    participant_count: Optional[int] = 0
+    created_by: UUID
+    created_at: datetime
+    updated_at: datetime
+    image_url: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -62,9 +65,6 @@ class TripResponse(BaseModel):
 
 class TripDetailResponse(TripResponse):
     participants: List[ParticipantResponse] = []
-
-    class Config:
-        from_attributes = True
 
 
 class InviteRequest(BaseModel):

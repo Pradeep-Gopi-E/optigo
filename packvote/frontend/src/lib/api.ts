@@ -10,13 +10,13 @@ export interface Trip {
   destination?: string;
   start_date?: string;
   end_date?: string;
-  status: string;
-  participant_count: number;
-  created_at: string;
-  description?: string;
-  budget_min?: number;
-  budget_max?: number;
-  created_by?: string;
+  user_name: string;
+  trip_id: string;
+  role: 'owner' | 'editor' | 'viewer';
+  status: 'planning' | 'voting' | 'confirmed' | 'cancelled';
+  joined_at?: string;
+  vote_status: 'not_voted' | 'voted' | 'skipped';
+  image_url?: string;
 }
 
 export interface TripDetail {
@@ -37,6 +37,7 @@ export interface TripDetail {
   updated_at: string;
   allow_member_recommendations: boolean;
   expected_participants?: number;
+  image_url?: string;
 }
 
 export interface Participant {
@@ -105,6 +106,7 @@ export interface PreferenceData {
   activities?: string[];
   budget_level?: string;
   duration_days?: number;
+  currency?: string;
   [key: string]: any;
 }
 

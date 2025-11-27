@@ -90,7 +90,16 @@ async def startup_event():
                 logger.info("Added preferred_currency column")
         except Exception as e:
             # It's expected to fail if column exists
-            logger.info(f"Migration note: {e}")
+            logger.info(f"Migration note (preferred_currency): {e}")
+
+        # Manual migration for image_url
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE trips ADD COLUMN image_url VARCHAR(500)"))
+                conn.commit()
+                logger.info("Added image_url column")
+        except Exception as e:
+            logger.info(f"Migration note (image_url): {e}")
             
     except Exception as e:
         logger.error(f"Error creating database tables: {str(e)}")

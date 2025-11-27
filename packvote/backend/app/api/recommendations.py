@@ -461,10 +461,17 @@ async def personalize_recommendation(
 
         # Generate personalization
         ai_service = AIService(db)
+        
+        # Determine currency
+        currency = current_user.preferred_currency
+        if not currency:
+            currency_code, _ = ai_service.get_currency_for_location(current_user.location)
+            currency = currency_code
+            
         personalization_data = await ai_service.generate_personalization(
             destination=recommendation.destination_name,
             user_location=current_user.location,
-            currency=current_user.preferred_currency or "USD"
+            currency=currency or "USD"
         )
 
         # Store in meta

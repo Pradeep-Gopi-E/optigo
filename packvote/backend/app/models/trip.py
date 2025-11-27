@@ -27,12 +27,14 @@ class Trip(Base):
     budget_min = Column(Numeric(10, 2), nullable=True)
     budget_max = Column(Numeric(10, 2), nullable=True)
     expected_participants = Column(Integer, nullable=True)
-    invite_code = Column(String(20), unique=True, nullable=True, index=True)
+    invite_code = Column(String(255), unique=True, nullable=True)
     status = Column(Enum(TripStatus), default=TripStatus.planning, nullable=False)
     allow_member_recommendations = Column(Boolean, default=False)
+    image_url = Column(String(500), nullable=True)
+    
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
 
     # Relationships
     created_by_user = relationship("User", back_populates="created_trips")

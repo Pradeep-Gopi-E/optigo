@@ -106,10 +106,25 @@ export default function TripDetailPage() {
       const userData = localStorage.getItem('user')
       const currentUser = userData ? JSON.parse(userData) : null
 
+      // Set currency based on current user's preference, fallback to creator's, then locale
       if (currentUser) {
         const userPref = response.find(p => p.user_id === currentUser.id && p.preference_type === 'detailed')
         setPreferences(userPref || null)
+
+        if (userPref && userPref.preference_data?.currency) {
+          setCurrency(userPref.preference_data.currency)
+          return // Found user preference, stop here
+        }
       }
+
+      // Fallback to creator's preference if user hasn't set one
+      if (trip) {
+        const creatorPref = response.find(p => p.user_id === trip.created_by && p.preference_type === 'detailed')
+        if (creatorPref && creatorPref.preference_data?.currency) {
+          setCurrency(creatorPref.preference_data.currency)
+        }
+      }
+
     } catch (error) {
       console.error('Failed to fetch preferences:', error)
     }
@@ -142,6 +157,17 @@ export default function TripDetailPage() {
   const handleEditRecommendation = (rec: Recommendation) => {
     setSelectedRec(rec)
     setIsEditRecModalOpen(true)
+  }
+
+  const handleDeleteRecommendation = async (recId: string) => {
+    if (!confirm('Are you sure you want to delete this recommendation?')) return
+    try {
+      await recommendationsAPI.deleteRecommendation(tripId, recId)
+      toast.success('Recommendation deleted')
+      fetchRecommendations()
+    } catch (error) {
+      toast.error('Failed to delete recommendation')
+    }
   }
 
   const handleViewRecommendation = (rec: Recommendation) => {
@@ -192,7 +218,7 @@ export default function TripDetailPage() {
       {/* Hero Section */}
       <div className="relative h-[40vh] min-h-[400px] w-full bg-gray-900 overflow-hidden">
         <img
-          src={trip.destination ? `https://source.unsplash.com/1600x900/?${trip.destination},travel` : "https://source.unsplash.com/1600x900/?travel,vacation"}
+          src={trip.image_url || (trip.destination ? `https://source.unsplash.com/1600x900/?${trip.destination},travel` : "https://source.unsplash.com/1600x900/?travel,vacation")}
           alt={trip.title}
           className="w-full h-full object-cover opacity-70 scale-105 animate-fade-in-up"
           style={{ animationDuration: '1.5s' }}
@@ -246,7 +272,17 @@ export default function TripDetailPage() {
                 <Share2 className="h-4 w-4" />
                 Share
               </Button>
-              {trip.status === 'planning' && (
+              {isOwner && (
+                <Button
+                  variant="secondary"
+                  className="gap-2 shadow-lg hover:shadow-xl transition-all"
+                  onClick={() => router.push(`/trips/${tripId}/settings`)}
+                >
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </Button>
+              )}
+              {trip.status === 'planning' && !isOwner && (
                 <Button onClick={() => router.push(`/trips/${tripId}/preferences`)} className="shadow-lg">
                   Edit Preferences
                 </Button>
@@ -512,21 +548,34 @@ export default function TripDetailPage() {
                                 <div className="flex items-center gap-3">
                                   {rec.estimated_cost && (
                                     <Badge variant="secondary" className="text-green-700 bg-green-50/80 backdrop-blur-sm border border-green-100">
-                                      {formatCurrency(convertCurrency(rec.estimated_cost, 'USD', currency))}
+                                      {formatCurrency(convertCurrency(rec.estimated_cost, rec.meta?.currency || 'USD', currency))}
                                     </Badge>
                                   )}
                                   {(isOwner || rec.created_by === user?.id) && (
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleEditRecommendation(rec)
-                                      }}
-                                    >
-                                      <Pencil className="h-4 w-4 text-muted-foreground" />
-                                    </Button>
+                                    <>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleEditRecommendation(rec)
+                                        }}
+                                      >
+                                        <Pencil className="h-4 w-4 text-muted-foreground" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-500"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleDeleteRecommendation(rec.id)
+                                        }}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </>
                                   )}
                                 </div>
                               </div>
