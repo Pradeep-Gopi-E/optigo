@@ -12,6 +12,17 @@ class RecommendationCreate(BaseModel):
     ai_generated: bool = False
 
 
+
+class RecommendationUpdate(BaseModel):
+    destination_name: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    estimated_cost: Optional[float] = Field(None, ge=0)
+    activities: Optional[List[str]] = None
+    accommodation_options: Optional[List[str]] = None
+    transportation_options: Optional[List[str]] = None
+    meta: Optional[dict] = None
+
+
 class RecommendationResponse(BaseModel):
     id: str
     trip_id: str

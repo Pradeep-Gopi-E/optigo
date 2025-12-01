@@ -12,7 +12,7 @@ export interface Trip {
   end_date?: string;
   user_name: string;
   trip_id: string;
-  role: 'owner' | 'editor' | 'viewer';
+  role: 'owner' | 'admin' | 'member' | 'viewer';
   status: 'planning' | 'voting' | 'confirmed' | 'cancelled';
   joined_at?: string;
   vote_status: 'not_voted' | 'voted' | 'skipped';
@@ -34,8 +34,9 @@ export interface TripDetail {
   invite_code?: string;
   participants: Participant[];
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
   allow_member_recommendations: boolean;
+  allow_member_edits: boolean;
   expected_participants?: number;
   image_url?: string;
 }
@@ -45,7 +46,7 @@ export interface Participant {
   user_id: string;
   user_name: string;
   trip_id: string;
-  role: 'owner' | 'editor' | 'viewer';
+  role: 'owner' | 'admin' | 'member' | 'viewer';
   status: 'joined' | 'invited' | 'declined';
   joined_at?: string;
   vote_status: 'not_voted' | 'voted' | 'skipped';
@@ -248,6 +249,12 @@ export const tripsAPI = {
   removeParticipant: async (tripId: string, participantId: string) => {
     const headers = getAuthHeaders();
     const response = await axios.delete(`${API_BASE_URL}/trips/${tripId}/participants/${participantId}`, { headers });
+    return response.data;
+  },
+
+  updateParticipantRole: async (tripId: string, participantId: string, role: string) => {
+    const headers = getAuthHeaders();
+    const response = await axios.put(`${API_BASE_URL}/trips/${tripId}/participants/${participantId}/role`, { role }, { headers });
     return response.data;
   },
 

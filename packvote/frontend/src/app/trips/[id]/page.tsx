@@ -154,6 +154,27 @@ export default function TripDetailPage() {
     }
   }
 
+  const handleToggleMemberEdits = async (checked: boolean) => {
+    if (!trip) return
+    try {
+      const updatedTrip = await tripsAPI.updateTrip(tripId, { allow_member_edits: checked })
+      setTrip({ ...trip, allow_member_edits: updatedTrip.allow_member_edits })
+      toast.success(checked ? 'Member editing allowed' : 'Member editing disabled')
+    } catch (error) {
+      toast.error('Failed to update settings')
+    }
+  }
+
+  const handleUpdateRole = async (participantId: string, newRole: 'admin' | 'member') => {
+    try {
+      await tripsAPI.updateParticipantRole(tripId, participantId, newRole)
+      toast.success(`Participant role updated to ${newRole}`)
+      fetchTripDetails()
+    } catch (error) {
+      toast.error('Failed to update role')
+    }
+  }
+
   const handleEditRecommendation = (rec: Recommendation) => {
     setSelectedRec(rec)
     setIsEditRecModalOpen(true)
@@ -209,6 +230,8 @@ export default function TripDetailPage() {
 
   const tabs = ['overview', 'participants', 'preferences', 'recommendations', 'voting']
   const isOwner = trip.created_by === user?.id
+  const currentUserParticipant = trip.participants.find(p => p.user_id === user?.id)
+  const userRole = isOwner ? 'owner' : currentUserParticipant?.role
   const canAddRecommendation = isOwner || trip.allow_member_recommendations
 
   return (
@@ -333,7 +356,7 @@ export default function TripDetailPage() {
                       <h3 className="font-semibold mb-2 text-foreground/80">Description</h3>
                       <p className="text-muted-foreground leading-relaxed">{trip.description || 'No description provided.'}</p>
                     </div>
-                    <div className="grid grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="bg-secondary/20 p-4 rounded-lg border border-border/50">
                         <h3 className="font-semibold mb-1 text-foreground/80 flex items-center gap-2">
                           <DollarSign className="w-4 h-4 text-primary" /> Budget Range
@@ -372,9 +395,24 @@ export default function TripDetailPage() {
                             <p className="text-sm text-muted-foreground capitalize">{participant.role}</p>
                           </div>
                         </div>
-                        <Badge variant={participant.status === 'joined' ? 'default' : 'secondary'} className="capitalize">
-                          {participant.status}
-                        </Badge>
+                        <div className="flex items-center gap-3">
+                          <Badge variant={participant.status === 'joined' ? 'default' : 'secondary'} className="capitalize">
+                            {participant.status}
+                          </Badge>
+                          {isOwner && participant.user_id !== user?.id && (
+                            <div className="flex gap-2">
+                              {participant.role === 'admin' ? (
+                                <Button variant="outline" size="sm" onClick={() => handleUpdateRole(participant.id, 'member')}>
+                                  Demote
+                                </Button>
+                              ) : (
+                                <Button variant="outline" size="sm" onClick={() => handleUpdateRole(participant.id, 'admin')}>
+                                  Promote
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -414,14 +452,14 @@ export default function TripDetailPage() {
                           <div className="bg-secondary/10 p-4 rounded-xl border border-border/50">
                             <h3 className="font-semibold mb-3 text-xs text-muted-foreground uppercase tracking-wider">Activities</h3>
                             <div className="flex flex-wrap gap-2">
-                              {preferences.preference_data?.activities?.map((a: string) => (
+                              {preferences.preference_data?.must_have_activities?.map((a: string) => (
                                 <Badge key={a} variant="outline" className="bg-background/50">{a}</Badge>
                               )) || 'Not specified'}
                             </div>
                           </div>
                           <div className="bg-secondary/10 p-4 rounded-xl border border-border/50">
                             <h3 className="font-semibold mb-3 text-xs text-muted-foreground uppercase tracking-wider">Budget Level</h3>
-                            <p className="font-medium capitalize text-foreground">{preferences.preference_data?.budget_level || 'Not specified'}</p>
+                            <p className="font-medium capitalize text-foreground">{preferences.preference_data?.budget_sensitivity?.replace('_', ' ') || 'Not specified'}</p>
                           </div>
                           <div className="bg-secondary/10 p-4 rounded-xl border border-border/50">
                             <h3 className="font-semibold mb-3 text-xs text-muted-foreground uppercase tracking-wider">Duration</h3>
@@ -694,6 +732,20 @@ export default function TripDetailPage() {
                     />
                   </div>
 
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="member-edits" className="text-foreground">Allow Member Edits</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Let members edit itineraries
+                      </p>
+                    </div>
+                    <Switch
+                      id="member-edits"
+                      checked={trip.allow_member_edits}
+                      onCheckedChange={handleToggleMemberEdits}
+                    />
+                  </div>
+
                   <div className="pt-4 border-t border-border/50">
                     <Button
                       variant="destructive"
@@ -767,6 +819,10 @@ export default function TripDetailPage() {
         onClose={() => setIsDetailsModalOpen(false)}
         recommendation={viewingRec}
         userCurrency={currency}
+        userRole={userRole}
+        allowMemberEdits={trip.allow_member_edits}
+        tripId={tripId}
+        onUpdate={fetchRecommendations}
       />
     </div>
   )

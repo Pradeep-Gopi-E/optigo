@@ -9,7 +9,7 @@ import logging
 from ..schemas.trip import TripCreate, TripUpdate, TripResponse, TripDetailResponse, InviteRequest, JoinTripResponse
 from ..schemas.participant import ParticipantResponse, ParticipantRole, ParticipantStatus
 from ..services.auth import AuthService
-from ..models import Trip, Participant, User
+from ..models import Trip, Participant, User, Vote
 from ..models.trip import TripStatus
 from ..models.participant import ParticipantRole as ParticipantRoleModel, ParticipantStatus as ParticipantStatusModel
 from ..utils.database import get_db
@@ -84,6 +84,7 @@ async def create_trip(
             invite_code=secrets.token_urlsafe(8),
             status=TripStatus.planning,
             allow_member_recommendations=trip_data.allow_member_recommendations,
+            allow_member_edits=trip_data.allow_member_edits,
             image_url=trip_data.image_url
         )
         
@@ -182,6 +183,7 @@ async def get_trip(
             invite_code=trip.invite_code,
             status=trip.status.value,
             allow_member_recommendations=trip.allow_member_recommendations,
+            allow_member_edits=trip.allow_member_edits,
             created_by=str(trip.created_by),
             created_at=trip.created_at,
             updated_at=trip.updated_at,
@@ -435,4 +437,101 @@ async def remove_participant(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to remove participant"
+        )
+
+
+@router.put("/{trip_id}/participants/{participant_id}/role", response_model=ParticipantResponse)
+async def update_participant_role(
+    trip_id: str,
+    participant_id: str,
+    role: ParticipantRole,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update a participant's role (e.g. promote to admin)"""
+    try:
+        # Validate UUIDs
+        try:
+            uuid.UUID(trip_id)
+            uuid.UUID(participant_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Invalid ID format"
+            )
+
+        # Get trip
+        trip = db.query(Trip).filter(Trip.id == trip_id).first()
+        if not trip:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Trip not found"
+            )
+
+        # Only owner can change roles
+        if str(trip.created_by) != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only trip owners can manage participant roles"
+            )
+
+        # Get participant
+        participant = db.query(Participant).filter(
+            Participant.id == participant_id,
+            Participant.trip_id == trip_id
+        ).first()
+
+        if not participant:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Participant not found"
+            )
+            
+        # Prevent changing owner's role (if they are in the participants list)
+        if str(participant.user_id) == str(trip.created_by):
+             raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot change role of the trip owner"
+            )
+
+        # Update role
+        # Map schema enum to model enum
+        if role == ParticipantRole.admin:
+            participant.role = ParticipantRoleModel.admin
+        elif role == ParticipantRole.member:
+            participant.role = ParticipantRoleModel.member
+        elif role == ParticipantRole.viewer:
+            participant.role = ParticipantRoleModel.viewer
+        else:
+             raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid role"
+            )
+
+        db.commit()
+        db.refresh(participant)
+
+        # Get user info for response
+        user = db.query(User).filter(User.id == participant.user_id).first()
+
+        return ParticipantResponse(
+            id=str(participant.id),
+            trip_id=str(participant.trip_id),
+            user_id=str(participant.user_id),
+            role=participant.role.value,
+            status=participant.status.value,
+            invited_at=participant.invited_at,
+            joined_at=participant.joined_at,
+            user_name=user.name,
+            user_email=user.email
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating participant role: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update participant role"
         )

@@ -1,5 +1,6 @@
 'use client'
 
+// Force update
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
@@ -15,7 +16,8 @@ import {
   ChevronRight,
   Star,
   Timer,
-  FileText
+  FileText,
+  Sparkles
 } from 'lucide-react'
 import { tripsAPI, preferencesAPI } from '@/lib/api'
 import { formatDate } from '@/lib/utils'
@@ -47,6 +49,8 @@ interface PreferenceData {
   dietary_restrictions: string[]
   group_size_preference: string
   trip_description: string
+  vibe: string[]
+  duration_days: number | ''
 }
 
 export default function PreferencesPage() {
@@ -68,11 +72,14 @@ export default function PreferencesPage() {
     avoid_activities: [],
     dietary_restrictions: [],
     group_size_preference: '',
-    trip_description: ''
+    trip_description: '',
+    vibe: [],
+    duration_days: ''
   })
 
   const steps = [
     { title: 'Description', icon: FileText },
+    { title: 'Vibe', icon: Sparkles },
     { title: 'Accommodation', icon: Heart },
     { title: 'Transportation', icon: MapPin },
     { title: 'Activities', icon: Activity },
@@ -81,32 +88,25 @@ export default function PreferencesPage() {
     { title: 'Group Size', icon: Users }
   ]
 
-  useEffect(() => {
-    const userData = localStorage.getItem('user')
-    if (userData) {
-      setUser(JSON.parse(userData))
-    } else {
-      router.push('/auth/login')
-      return
-    }
-
-    const loadData = async () => {
-      try {
-        await Promise.all([fetchTripData(), fetchPreferences()])
-      } catch (error) {
-        console.error('Error loading data:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    loadData()
-  }, [router, tripId])
-
   const fetchTripData = async () => {
     try {
       const response = await tripsAPI.getTrip(tripId as string)
       setTrip(response)
+
+      // Auto-calculate duration if dates are present and preference not set
+      if (response.start_date && response.end_date) {
+        const start = new Date(response.start_date)
+        const end = new Date(response.end_date)
+        const diffTime = Math.abs(end.getTime() - start.getTime())
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1 // Inclusive
+
+        setPreferences(prev => {
+          if (!prev.duration_days) {
+            return { ...prev, duration_days: diffDays }
+          }
+          return prev
+        })
+      }
     } catch (error) {
       toast.error('Failed to fetch trip data')
     }
@@ -129,9 +129,30 @@ export default function PreferencesPage() {
       }
     } catch (error) {
       console.error('Failed to fetch preferences:', error)
-      // Don't show error toast here as it might be 404 if no preferences yet
     }
   }
+
+  useEffect(() => {
+    const userData = localStorage.getItem('user')
+    if (userData) {
+      setUser(JSON.parse(userData))
+    } else {
+      router.push('/auth/login')
+      return
+    }
+
+    const loadData = async () => {
+      try {
+        await Promise.all([fetchTripData(), fetchPreferences()])
+      } catch (error) {
+        console.error('Error loading data:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadData()
+  }, [router, tripId])
 
   const handleInputChange = (field: keyof PreferenceData, value: any) => {
     setPreferences(prev => ({
@@ -241,10 +262,10 @@ export default function PreferencesPage() {
                     className="flex items-center min-w-fit px-2"
                   >
                     <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-colors ${isActive
-                        ? 'border-primary bg-primary text-white'
-                        : isCompleted
-                          ? 'border-green-500 bg-green-500 text-white'
-                          : 'border-gray-300 text-gray-400'
+                      ? 'border-primary bg-primary text-white'
+                      : isCompleted
+                        ? 'border-green-500 bg-green-500 text-white'
+                        : 'border-gray-300 text-gray-400'
                       }`}>
                       <Icon className="w-5 h-5" />
                     </div>
@@ -286,7 +307,7 @@ export default function PreferencesPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Step 0: Description */}
+                  {/* Step 0: Description & Duration */}
                   {currentStep === 0 && (
                     <div className="space-y-6">
                       <div>
@@ -294,7 +315,7 @@ export default function PreferencesPage() {
                           Describe your ideal trip
                         </label>
                         <p className="text-sm text-gray-500 mb-3">
-                          Tell us anything specific you'd like to do, see, or experience. For example: "I want to visit Prague and drink beer", "I want a relaxing beach vacation in Bali", etc.
+                          Tell us anything specific you'd like to do, see, or experience.
                         </p>
                         <Textarea
                           value={preferences.trip_description}
@@ -303,11 +324,58 @@ export default function PreferencesPage() {
                           className="min-h-[150px]"
                         />
                       </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                          Preferred Duration (Days)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={preferences.duration_days}
+                          onChange={(e) => handleInputChange('duration_days', parseInt(e.target.value) || '')}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          placeholder="e.g. 7"
+                        />
+                      </div>
                     </div>
                   )}
 
-                  {/* Step 1: Accommodation */}
+                  {/* Step 1: Vibe */}
                   {currentStep === 1 && (
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                          What kind of vibe are you looking for?
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                          {[
+                            { value: 'adventure', label: 'Adventure' },
+                            { value: 'relaxation', label: 'Relaxation' },
+                            { value: 'culture', label: 'Culture' },
+                            { value: 'nightlife', label: 'Nightlife' },
+                            { value: 'nature', label: 'Nature' },
+                            { value: 'foodie', label: 'Foodie' },
+                            { value: 'shopping', label: 'Shopping' },
+                            { value: 'photography', label: 'Photography' }
+                          ].map(vibe => (
+                            <label key={vibe.value} className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                              <input
+                                type="checkbox"
+                                checked={preferences.vibe.includes(vibe.value)}
+                                onChange={() => handleCheckboxChange('vibe', vibe.value)}
+                                className="mr-2"
+                              />
+                              <span className="text-sm">{vibe.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Step 2: Accommodation */}
+                  {currentStep === 2 && (
                     <div className="space-y-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -366,8 +434,8 @@ export default function PreferencesPage() {
                     </div>
                   )}
 
-                  {/* Step 2: Transportation */}
-                  {currentStep === 2 && (
+                  {/* Step 3: Transportation */}
+                  {currentStep === 3 && (
                     <div className="space-y-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -400,8 +468,8 @@ export default function PreferencesPage() {
                     </div>
                   )}
 
-                  {/* Step 3: Activities */}
-                  {currentStep === 3 && (
+                  {/* Step 4: Activities */}
+                  {currentStep === 4 && (
                     <div className="space-y-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -462,8 +530,8 @@ export default function PreferencesPage() {
                     </div>
                   )}
 
-                  {/* Step 4: Budget */}
-                  {currentStep === 4 && (
+                  {/* Step 5: Budget */}
+                  {currentStep === 5 && (
                     <div className="space-y-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -505,8 +573,8 @@ export default function PreferencesPage() {
                     </div>
                   )}
 
-                  {/* Step 5: Dietary */}
-                  {currentStep === 5 && (
+                  {/* Step 6: Dietary */}
+                  {currentStep === 6 && (
                     <div className="space-y-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -538,8 +606,8 @@ export default function PreferencesPage() {
                     </div>
                   )}
 
-                  {/* Step 6: Group Size */}
-                  {currentStep === 6 && (
+                  {/* Step 7: Group Size */}
+                  {currentStep === 7 && (
                     <div className="space-y-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-3">

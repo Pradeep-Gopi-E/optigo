@@ -87,7 +87,13 @@ class AIService:
             self._log_debug(f"FULL PROMPT:\n{prompt}")
             self._log_debug("="*50)
 
-            response = self.model.generate_content(prompt)
+            response = self.model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.7,
+                    max_output_tokens=8192,
+                )
+            )
             ai_response_text = response.text
             
             self._log_debug("\n" + "="*50)
@@ -245,16 +251,16 @@ TRIP CONTEXT:
 GROUP PREFERENCES:
 """
         if detailed:
-            if detailed.get("accommodation_type"): prompt += f"• Accommodation: {detailed.get('accommodation_type')}\n"
-            if detailed.get("accommodation_amenities"): prompt += f"• Amenities: {', '.join(detailed.get('accommodation_amenities', []))}\n"
-            if detailed.get("must_have_activities"): prompt += f"• Must-Do: {', '.join(detailed.get('must_have_activities', []))}\n"
-            if detailed.get("avoid_activities"): prompt += f"• Avoid: {', '.join(detailed.get('avoid_activities', []))}\n"
-            if detailed.get("dietary_restrictions"): prompt += f"• Dietary: {', '.join(detailed.get('dietary_restrictions', []))}\n"
-            if detailed.get("trip_description"): prompt += f"• Notes: {detailed.get('trip_description')}\n"
+            if detailed.get("accommodation_type"): prompt += f"• Accommodation: {detailed.get('accommodation_type')}\\n"
+            if detailed.get("accommodation_amenities"): prompt += f"• Amenities: {', '.join(detailed.get('accommodation_amenities', []))}\\n"
+            if detailed.get("must_have_activities"): prompt += f"• Must-Do: {', '.join(detailed.get('must_have_activities', []))}\\n"
+            if detailed.get("avoid_activities"): prompt += f"• Avoid: {', '.join(detailed.get('avoid_activities', []))}\\n"
+            if detailed.get("dietary_restrictions"): prompt += f"• Dietary: {', '.join(detailed.get('dietary_restrictions', []))}\\n"
+            if detailed.get("trip_description"): prompt += f"• Notes: {detailed.get('trip_description')}\\n"
 
         if vibe:
              vibes = ', '.join(vibe.get('trip_vibe', []))
-             prompt += f"• Vibe: {vibes}\n"
+             prompt += f"• Vibe: {vibes}\\n"
 
         prompt += """
 PRIORITY LOGIC (Follow EXACTLY):
@@ -275,9 +281,9 @@ PRIORITY LOGIC (Follow EXACTLY):
    - Different climates/vibes.
 
 Return ONLY valid JSON in this format:
-{{
+{
   "recommendations": [
-    {{
+    {
       "destination": "City, Country",
       "description": "2-3 sentences why perfect for THIS group",
       "estimated_cost_per_person": "{currency_symbol}X,XXX (Average)",
@@ -288,18 +294,45 @@ Return ONLY valid JSON in this format:
       "accommodation_options": ["Specific hotel/area 1", "Specific hotel/area 2"],
       "continent": "Continent Name",
       "experience_type": "beach|mountain|city|cultural|adventure",
-      "cost_breakdown": {{
+      "cost_breakdown": {
         "User Name (Location)": "{currency_symbol}X,XXX",
         "User Name 2 (Location)": "{currency_symbol}X,XXX"
-      }},
+      },
       "transportation_notes": "How to get there and around",
-      "match_reason": "EXPLICIT explanation of how this fits the user's specific intent (Priority 4)"
-    }}
+      "match_reason": "EXPLICIT explanation of how this fits the user's specific intent (Priority 4)",
+      "itinerary": [
+        {
+          "day": 1,
+          "focus": "Arrival & Exploration",
+          "morning": "Activity...",
+          "afternoon": "Activity...",
+          "evening": "Activity..."
+        },
+        {
+          "day": 2,
+          "focus": "Culture & History",
+          "morning": "Activity...",
+          "afternoon": "Activity...",
+          "evening": "Activity..."
+        }
+      ],
+      "dining_recommendations": [
+        {
+          "name": "Restaurant Name",
+          "cuisine": "Italian/Local/etc",
+          "price_range": "$$-$$$",
+          "description": "Why it fits the group (e.g. good for large groups, vegan options)"
+        }
+      ]
+    }
   ]
-}}
+}
 
-Generate 3-5 recommendations based on the Priority Logic.
+Generate EXACTLY 5 to 7 recommendations based on the Priority Logic.
+IMPORTANT: You MUST provide at least 5 distinct recommendations. Do not stop at 3.
 IMPORTANT: Use the key "destination" for the place name. DO NOT use "location".
+For "dining_recommendations", consider the group's dietary restrictions and budget sensitivity.
+For "itinerary", provide a day-by-day plan for the trip duration (or up to 7 days if duration is long).
 """
         return prompt
 
@@ -344,7 +377,9 @@ IMPORTANT: Use the key "destination" for the place name. DO NOT use "location".
                         "best_for": rec_dict.get("best_for"),
                         "highlights": rec_dict.get("highlights"),
                         "transportation_options": [rec_dict.get("transportation_notes", "")],
-                        "currency": currency_code
+                        "currency": currency_code,
+                        "itinerary": rec_dict.get("itinerary", []),
+                        "dining_recommendations": rec_dict.get("dining_recommendations", [])
                     },
                     ai_generated=True
                 )
@@ -405,10 +440,38 @@ IMPORTANT: Use the key "destination" for the place name. DO NOT use "location".
                 "match_reason": "Good for culture and relaxation",
                 "best_for": "Cultural enthusiasts and beach lovers",
                 "accommodation_options": ["Hotel Arts Barcelona", "W Barcelona"],
-                "transportation_notes": "Fly into BCN, use metro for city travel"
+                "transportation_notes": "Fly into BCN, use metro for city travel",
+                "itinerary": [
+                    {"day": 1, "focus": "Arrival", "morning": "Check-in", "afternoon": "Ramble on Las Ramblas", "evening": "Tapas dinner"},
+                    {"day": 2, "focus": "Gaudi", "morning": "Sagrada Familia", "afternoon": "Park Guell", "evening": "Gothic Quarter"}
+                ],
+                "dining_recommendations": [
+                    {"name": "Cervecería Catalana", "cuisine": "Tapas", "price_range": "$$", "description": "Famous for tapas"},
+                    {"name": "Disfrutar", "cuisine": "Modern Spanish", "price_range": "$$$$", "description": "Michelin star experience"}
+                ]
             },
             {
                 "destination": "Kyoto, Japan",
+                "description": "Immerse yourself in ancient traditions and stunning temples.",
+                "estimated_cost_per_person": "$2,000",
+                "highlights": ["Kinkaku-ji", "Fushimi Inari-taisha"],
+                "weather_info": "Mild, 18°C",
+                "activities": ["Temple visiting", "Tea ceremony"],
+                "continent": "Asia",
+                "experience_type": "Cultural",
+                "cost_breakdown": {"User 1 (New York)": "$2500", "User 2 (London)": "$2200"},
+                "match_reason": "Rich history and culture",
+                "best_for": "History buffs",
+                "accommodation_options": ["Ryokan", "Hotel Granvia"],
+                "transportation_notes": "Shinkansen from Tokyo",
+                "itinerary": [
+                    {"day": 1, "focus": "Temples", "morning": "Kinkaku-ji", "afternoon": "Ryoan-ji", "evening": "Gion district"},
+                    {"day": 2, "focus": "Nature", "morning": "Arashiyama Bamboo Grove", "afternoon": "Tenryu-ji", "evening": "Pontocho Alley"}
+                ],
+                "dining_recommendations": [
+                    {"name": "Kikunoi", "cuisine": "Kaiseki", "price_range": "$$$$", "description": "Traditional multi-course dinner"},
+                    {"name": "Ippudo", "cuisine": "Ramen", "price_range": "$", "description": "Famous ramen chain"}
+                ]
             }
         ]
         return await self._create_recommendations_from_ai(trip_id, fallback_recs)

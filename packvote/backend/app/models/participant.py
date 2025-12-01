@@ -10,6 +10,7 @@ from ..utils.database import Base
 
 class ParticipantRole(enum.Enum):
     owner = "owner"
+    admin = "admin"
     member = "member"
     viewer = "viewer"
 

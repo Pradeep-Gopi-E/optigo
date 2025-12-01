@@ -15,6 +15,8 @@ class AIRecommendation(BaseModel):
     continent: str = Field(..., description="Continent of the destination")
     experience_type: str = Field(..., description="Type of experience (beach, mountain, city, etc.)")
     cost_breakdown: Dict[str, str] = Field(..., description="Estimated cost per person for each participant location")
+    itinerary: Optional[List[Dict[str, Any]]] = Field(default=[], description="Day-by-day itinerary")
+    dining_recommendations: Optional[List[Dict[str, Any]]] = Field(default=[], description="Dining recommendations")
 
     @model_validator(mode='before')
     @classmethod

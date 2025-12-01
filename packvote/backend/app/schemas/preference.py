@@ -82,6 +82,8 @@ class DetailedPreference(BaseModel):
     group_size_preference: Optional[str] = None
     budget_sensitivity: Optional[str] = None
     trip_description: Optional[str] = None
+    vibe: List[str] = Field(default_factory=list)
+    duration_days: Optional[int] = None
 
 class CompleteSurveyRequest(BaseModel):
     budget: Optional[BudgetPreference] = None
