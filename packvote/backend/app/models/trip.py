@@ -30,7 +30,6 @@ class Trip(Base):
     invite_code = Column(String(255), unique=True, nullable=True)
     status = Column(Enum(TripStatus), default=TripStatus.planning, nullable=False)
     allow_member_recommendations = Column(Boolean, default=False)
-    allow_member_edits = Column(Boolean, default=False)
     image_url = Column(String(500), nullable=True)
     
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)

@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import or_
 
 from ..models import User, Participant, Trip
+from ..models.participant import ParticipantStatus
 from ..utils.security import (
     create_access_token,
     verify_token
@@ -207,14 +208,15 @@ class AuthService:
             participant = self.db.query(Participant).filter(
                 Participant.trip_id == trip_id,
                 Participant.user_id == user.id,
-                Participant.status == "joined"
+                Participant.status == ParticipantStatus.joined
             ).first()
 
             if not participant:
                 return False
 
             # Role hierarchy: owner > member > viewer
-            role_hierarchy = {"viewer": 1, "member": 2, "owner": 3}
+            # Role hierarchy: owner > admin > member > viewer
+            role_hierarchy = {"viewer": 1, "member": 2, "admin": 3, "owner": 4}
             user_role_level = role_hierarchy.get(participant.role.value, 0)
             required_role_level = role_hierarchy.get(required_role, 0)
 
@@ -224,7 +226,7 @@ class AuthService:
             logger.error(f"Error checking trip access: {str(e)}")
             return False
 
-    def update_user_profile(self, user_id: str, name: Optional[str] = None, telegram_id: Optional[str] = None, location: Optional[str] = None) -> User:
+    def update_user_profile(self, user_id: str, name: Optional[str] = None, telegram_id: Optional[str] = None, location: Optional[str] = None, preferred_currency: Optional[str] = None) -> User:
         """
         Update user profile information
         """
@@ -257,6 +259,8 @@ class AuthService:
                 user.telegram_id = telegram_id
             if location is not None:
                 user.location = location
+            if preferred_currency is not None:
+                user.preferred_currency = preferred_currency
 
             user.updated_at = datetime.utcnow()
 

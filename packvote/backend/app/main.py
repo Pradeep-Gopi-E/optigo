@@ -100,15 +100,6 @@ async def startup_event():
                 logger.info("Added image_url column")
         except Exception as e:
             logger.info(f"Migration note (image_url): {e}")
-
-        # Manual migration for allow_member_edits
-        try:
-            with engine.connect() as conn:
-                conn.execute(text("ALTER TABLE trips ADD COLUMN allow_member_edits BOOLEAN DEFAULT FALSE"))
-                conn.commit()
-                logger.info("Added allow_member_edits column")
-        except Exception as e:
-            logger.info(f"Migration note (allow_member_edits): {e}")
             
     except Exception as e:
         logger.error(f"Error creating database tables: {str(e)}")

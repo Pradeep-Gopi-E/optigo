@@ -4,22 +4,15 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Save, GripVertical, AlertCircle, CheckCircle2, Users, Lock, Compass } from 'lucide-react'
-import { tripsAPI, recommendationsAPI, votesAPI, authAPI, UserVoteSummary } from '@/lib/api'
+import { ArrowLeft, Save, GripVertical, AlertCircle, CheckCircle2, Users, Lock, Compass, Eye, DollarSign } from 'lucide-react'
+import { tripsAPI, recommendationsAPI, votesAPI, authAPI, UserVoteSummary, Recommendation } from '@/lib/api'
 import { formatCurrency, getCurrencyFromLocale } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
-
-interface Recommendation {
-  id: string
-  destination_name: string
-  description?: string
-  estimated_cost?: number
-  ai_generated: boolean
-}
+import RecommendationDetailsModal from '@/components/trips/RecommendationDetailsModal'
 
 export default function VotingPage() {
   const params = useParams()
@@ -35,6 +28,10 @@ export default function VotingPage() {
 
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [trip, setTrip] = useState<any>(null)
+
+  // Modal State
+  const [selectedRecommendation, setSelectedRecommendation] = useState<Recommendation | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   useEffect(() => {
     if (tripId) {
@@ -131,6 +128,11 @@ export default function VotingPage() {
     }
   }
 
+  const openDetails = (rec: Recommendation) => {
+    setSelectedRecommendation(rec)
+    setIsModalOpen(true)
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -140,6 +142,9 @@ export default function VotingPage() {
   }
 
   const isOwner = currentUser && trip && currentUser.id === trip.created_by
+  const isAdmin = currentUser && trip && trip.participants.find((p: any) => p.user_id === currentUser.id)?.role === 'admin'
+  const isOwnerOrAdmin = isOwner || isAdmin
+
   // Check if enough participants (at least 2)
   const participantCount = trip?.participants?.length || 0
   const isVotingLocked = participantCount < 2
@@ -317,8 +322,8 @@ export default function VotingPage() {
                         ref={provided.innerRef}
                         {...provided.draggableProps}
                         className={`bg-card/90 backdrop-blur-sm rounded-xl border border-border/50 p-6 flex items-center transition-all duration-200 ${snapshot.isDragging
-                            ? 'shadow-2xl scale-[1.02] ring-2 ring-primary ring-opacity-50 z-50'
-                            : 'hover:shadow-lg hover:border-primary/30'
+                          ? 'shadow-2xl scale-[1.02] ring-2 ring-primary ring-opacity-50 z-50'
+                          : 'hover:shadow-lg hover:border-primary/30'
                           }`}
                       >
                         <div
@@ -335,14 +340,36 @@ export default function VotingPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-2">
                             <h3 className="font-heading font-bold text-lg text-foreground truncate pr-4">{rec.destination_name}</h3>
-                            {rec.estimated_cost && (
-                              <span className="text-sm font-medium text-muted-foreground bg-secondary/50 px-2 py-1 rounded-md whitespace-nowrap">
-                                {formatCurrency(rec.estimated_cost, currency)}
-                              </span>
-                            )}
+                            <div className="flex items-center gap-2">
+                              {rec.estimated_cost && (
+                                <Badge variant="outline" className="text-sm font-medium text-muted-foreground bg-secondary/50 border-none">
+                                  {formatCurrency(rec.estimated_cost, currency)}
+                                </Badge>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => openDetails(rec)}
+                                className="text-primary hover:text-primary/80 hover:bg-primary/10"
+                              >
+                                <Eye className="w-4 h-4 mr-1" /> Details
+                              </Button>
+                            </div>
                           </div>
                           {rec.description && (
                             <p className="text-sm text-muted-foreground line-clamp-1">{rec.description}</p>
+                          )}
+
+                          {/* Budget Fit Indicator (Mock logic for now, can be enhanced) */}
+                          {rec.estimated_cost && trip.budget_max && rec.estimated_cost <= trip.budget_max && (
+                            <div className="mt-2 flex items-center text-xs text-green-600">
+                              <DollarSign className="w-3 h-3 mr-1" /> Within Budget
+                            </div>
+                          )}
+                          {rec.estimated_cost && trip.budget_max && rec.estimated_cost > trip.budget_max && (
+                            <div className="mt-2 flex items-center text-xs text-orange-600">
+                              <DollarSign className="w-3 h-3 mr-1" /> Over Budget
+                            </div>
                           )}
                         </div>
 
@@ -375,6 +402,16 @@ export default function VotingPage() {
           </div>
         )}
       </main>
+
+      <RecommendationDetailsModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        recommendation={selectedRecommendation}
+        userCurrency={currency}
+        tripId={tripId}
+        isOwnerOrAdmin={isOwnerOrAdmin}
+        onUpdate={fetchData}
+      />
     </div>
   )
 }

@@ -8,8 +8,7 @@ from ..services.auth import AuthService
 from ..services.ai_service import AIService
 from ..services.voting import VotingService
 from ..services.unsplash_service import unsplash_service
-from ..models import Recommendation, Trip, Participant
-from ..models.participant import ParticipantRole as ParticipantRoleModel
+from ..models import Recommendation, Trip
 from ..utils.database import get_db
 from ..api.auth import get_current_user
 import logging
@@ -337,129 +336,6 @@ async def get_recommendation(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve recommendation"
-        )
-
-
-@router.put("/{recommendation_id}", response_model=RecommendationResponse)
-async def update_recommendation(
-    trip_id: str,
-    recommendation_id: str,
-    recommendation_update: RecommendationUpdate,
-    current_user = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Update a recommendation"""
-    try:
-        # Validate UUIDs
-        try:
-            uuid.UUID(trip_id)
-            uuid.UUID(recommendation_id)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Invalid ID format"
-            )
-
-        # Get trip
-        trip = db.query(Trip).filter(Trip.id == trip_id).first()
-        if not trip:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Trip not found"
-            )
-
-        # Get recommendation
-        recommendation = db.query(Recommendation).filter(
-            Recommendation.id == recommendation_id,
-            Recommendation.trip_id == trip_id
-        ).first()
-
-        if not recommendation:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Recommendation not found"
-            )
-
-        # Check permissions
-        # 1. Owner can always edit
-        # 2. Admin can always edit
-        # 3. Member can edit if trip.allow_member_edits is True
-
-        is_owner = str(trip.created_by) == str(current_user.id)
-        
-        # Check if user is an admin participant
-        participant = db.query(Participant).filter(
-            Participant.trip_id == trip_id,
-            Participant.user_id == current_user.id
-        ).first()
-        
-        is_admin = participant and participant.role == ParticipantRoleModel.admin
-        is_member = participant and participant.role == ParticipantRoleModel.member
-
-        can_edit = is_owner or is_admin or (is_member and trip.allow_member_edits)
-
-        if not can_edit:
-             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to edit recommendations for this trip"
-            )
-
-        # Update fields
-        update_data = recommendation_update.dict(exclude_unset=True)
-        
-        if "meta" in update_data:
-            new_meta = update_data.pop("meta")
-            if recommendation.meta:
-                # Create a copy to avoid mutation issues
-                current_meta = dict(recommendation.meta)
-                current_meta.update(new_meta)
-                recommendation.meta = current_meta
-            else:
-                recommendation.meta = new_meta
-            
-            # Force update of meta field (SQLAlchemy sometimes misses JSON updates)
-            from sqlalchemy.orm.attributes import flag_modified
-            flag_modified(recommendation, "meta")
-
-        for field, value in update_data.items():
-            setattr(recommendation, field, value)
-
-        db.commit()
-        db.refresh(recommendation)
-
-        # Check for personalization for current user (for response)
-        personalization = None
-        if recommendation.meta and "personalizations" in recommendation.meta:
-            user_id = str(current_user.id)
-            if user_id in recommendation.meta["personalizations"]:
-                personalization = recommendation.meta["personalizations"][user_id]
-
-        recommendation_response = RecommendationResponse(
-            id=str(recommendation.id),
-            trip_id=str(recommendation.trip_id),
-            destination_name=recommendation.destination_name,
-            description=recommendation.description,
-            estimated_cost=float(recommendation.estimated_cost) if recommendation.estimated_cost else None,
-            activities=recommendation.activities,
-            accommodation_options=recommendation.accommodation_options,
-            transportation_options=recommendation.meta.get("transportation_options", []) if recommendation.meta else [],
-            ai_generated=recommendation.ai_generated,
-            image_url=recommendation.image_url,
-            created_at=recommendation.created_at,
-            personalization=personalization,
-            meta=recommendation.meta
-        )
-
-        return recommendation_response
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error updating recommendation: {str(e)}")
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update recommendation"
         )
 
 

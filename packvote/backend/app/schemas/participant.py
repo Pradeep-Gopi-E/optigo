@@ -6,6 +6,7 @@ from enum import Enum
 
 class ParticipantRole(str, Enum):
     owner = "owner"
+    admin = "admin"
     member = "member"
     viewer = "viewer"
 

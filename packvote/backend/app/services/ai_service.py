@@ -102,14 +102,8 @@ class AIService:
             self._log_debug(f"RAW RESPONSE:\n{ai_response_text}")
             self._log_debug("="*50)
 
-            # Extract JSON
-            json_start = ai_response_text.find('{')
-            json_end = ai_response_text.rfind('}') + 1
-
-            if json_start != -1 and json_end != -1:
-                json_text = ai_response_text[json_start:json_end].strip()
-            else:
-                json_text = ai_response_text
+            # Clean and Extract JSON
+            json_text = self._clean_json_string(ai_response_text)
 
             try:
                 # Validate with Pydantic
@@ -211,6 +205,22 @@ class AIService:
                 return code, symbol
         return 'USD', '$'
 
+    def _clean_json_string(self, json_str: str) -> str:
+        """Clean potential markdown formatting from JSON string"""
+        # Remove markdown code blocks
+        if "```json" in json_str:
+            json_str = json_str.split("```json")[1].split("```")[0]
+        elif "```" in json_str:
+             json_str = json_str.split("```")[1].split("```")[0]
+        
+        # Find the first '{' and last '}'
+        start = json_str.find('{')
+        end = json_str.rfind('}') + 1
+        if start != -1 and end != -1:
+            json_str = json_str[start:end]
+            
+        return json_str.strip()
+
     def _build_ai_prompt(self, trip: Trip, preferences: List[Preference], participant_locations: List[str]) -> str:
         """Build enhanced AI prompt with trip and preference data"""
         
@@ -235,6 +245,15 @@ class AIService:
         # Determine User Intent
         specific_location = trip.destination if trip.destination and trip.destination.lower() != "open" else None
         
+        # Get Trip Duration
+        duration_days = detailed.get('duration_days', 7) # Default to 7 if not set
+        if trip.start_date and trip.end_date:
+             try:
+                 delta = trip.end_date - trip.start_date
+                 duration_days = delta.days + 1
+             except:
+                 pass
+
         # Construct the prompt
         prompt = f"""You are an expert travel AI specializing in group trips.
         
@@ -242,6 +261,7 @@ TRIP CONTEXT:
 ┌─────────────────────────┬──────────────────────────────────┐
 │ Trip Title              │ {trip.title[:30]}                │
 │ Expected Group Size     │ {expected_size} people           │
+│ Trip Duration           │ {duration_days} days             │
 │ Budget (per person)     │ {currency_symbol}{trip.budget_min or 'Flex'} - {currency_symbol}{trip.budget_max or 'Flex'} ({currency_code}) │
 │ Travel Dates            │ {trip.start_date or 'Flexible'} to {trip.end_date or 'Flexible'} │
 │ Destination Input       │ {specific_location or 'Open/Undecided'}     │
@@ -328,11 +348,12 @@ Return ONLY valid JSON in this format:
   ]
 }
 
-Generate EXACTLY 5 to 7 recommendations based on the Priority Logic.
-IMPORTANT: You MUST provide at least 5 distinct recommendations. Do not stop at 3.
+Generate EXACTLY 6 recommendations based on the Priority Logic.
+IMPORTANT: You MUST provide exactly 6 distinct recommendations.
 IMPORTANT: Use the key "destination" for the place name. DO NOT use "location".
-For "dining_recommendations", consider the group's dietary restrictions and budget sensitivity.
-For "itinerary", provide a day-by-day plan for the trip duration (or up to 7 days if duration is long).
+IMPORTANT: Provide a detailed day-by-day itinerary for the FULL duration of the trip (up to 7 days detailed, summarize if longer).
+IMPORTANT: For "cost_breakdown", try to estimate flight+stay costs for each participant location based on the destination.
+IMPORTANT: Return RAW JSON only. Do not use Markdown code blocks. Do not include comments. Ensure all keys and values are double-quoted.
 """
         return prompt
 

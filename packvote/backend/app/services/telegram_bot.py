@@ -6,6 +6,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 import asyncio
 
 from ..models import User, Trip, Participant, Preference
+from ..models.participant import ParticipantStatus
 from ..schemas.preference import (
     BudgetPreference, DatesPreference, ActivitiesPreference,
     AccommodationPreference, TransportationPreference, VibePreference,
@@ -271,7 +272,7 @@ Need help? Contact your trip organizer.
             participant = self.db.query(Participant).filter(
                 Participant.trip_id == trip_id,
                 Participant.user_id == user_id,
-                Participant.status == "joined"
+                Participant.status == ParticipantStatus.joined
             ).first()
             return participant is not None
         except Exception as e:
@@ -442,7 +443,7 @@ Use /status anytime to check your progress on other trips.
                 Participant, Trip.id == Participant.trip_id
             ).filter(
                 Participant.user_id == user_id,
-                Participant.status == "joined"
+                Participant.status == ParticipantStatus.joined
             ).all()
 
             trips_status = []

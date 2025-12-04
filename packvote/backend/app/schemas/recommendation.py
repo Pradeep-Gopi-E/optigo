@@ -12,11 +12,10 @@ class RecommendationCreate(BaseModel):
     ai_generated: bool = False
 
 
-
 class RecommendationUpdate(BaseModel):
-    destination_name: Optional[str] = Field(None, min_length=1, max_length=255)
+    destination_name: Optional[str] = None
     description: Optional[str] = None
-    estimated_cost: Optional[float] = Field(None, ge=0)
+    estimated_cost: Optional[float] = None
     activities: Optional[List[str]] = None
     accommodation_options: Optional[List[str]] = None
     transportation_options: Optional[List[str]] = None
@@ -41,6 +40,7 @@ class RecommendationResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
 class GenerateRecommendationsResponse(BaseModel):
     message: str
     recommendations_generated: int

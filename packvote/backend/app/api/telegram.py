@@ -6,6 +6,7 @@ import logging
 from ..services.auth import AuthService
 from ..services.telegram_bot import TelegramBotService
 from ..models import User, Participant, Trip
+from ..models.participant import ParticipantStatus
 from ..utils.database import get_db
 from ..api.auth import get_current_user
 import asyncio
@@ -73,7 +74,7 @@ async def send_survey_invitation(
             User, Participant.user_id == User.id
         ).filter(
             Participant.trip_id == trip_id,
-            Participant.status == "joined",
+            Participant.status == ParticipantStatus.joined,
             User.telegram_id.isnot(None)
         ).all()
 
@@ -146,7 +147,7 @@ async def send_voting_notification(
             User, Participant.user_id == User.id
         ).filter(
             Participant.trip_id == trip_id,
-            Participant.status == "joined",
+            Participant.status == ParticipantStatus.joined,
             User.telegram_id.isnot(None)
         ).all()
 
@@ -206,7 +207,7 @@ async def get_telegram_participants_stats(
             User, Participant.user_id == User.id
         ).filter(
             Participant.trip_id == trip_id,
-            Participant.status == "joined"
+            Participant.status == ParticipantStatus.joined
         ).all()
 
         # Count participants with and without Telegram

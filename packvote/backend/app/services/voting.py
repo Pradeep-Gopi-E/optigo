@@ -1,6 +1,7 @@
 from typing import List, Dict, Optional, Tuple, NamedTuple
 from sqlalchemy.orm import Session
 from ..models import Vote, Recommendation, User, Trip, Participant
+from ..models.participant import ParticipantStatus
 import logging
 
 logger = logging.getLogger(__name__)
@@ -323,7 +324,7 @@ class VotingService:
             # Get all joined participants
             participants = self.db.query(Participant).filter(
                 Participant.trip_id == trip_id,
-                Participant.status == "joined"
+                Participant.status == ParticipantStatus.joined
             ).all()
 
             if not participants:

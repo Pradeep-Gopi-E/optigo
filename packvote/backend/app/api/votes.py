@@ -7,6 +7,7 @@ from ..schemas.vote import VoteCreate, BulkVoteCreate, VoteResponse, VotingResul
 from ..services.auth import AuthService
 from ..services.voting import VotingService
 from ..models import Vote, Recommendation, User, Trip, Participant
+from ..models.participant import ParticipantStatus
 from ..utils.database import get_db
 from ..api.auth import get_current_user
 import logging
@@ -477,7 +478,7 @@ async def get_voting_summary(
             User, Participant.user_id == User.id
         ).filter(
             Participant.trip_id == trip_id,
-            Participant.status == "joined"
+            Participant.status == ParticipantStatus.joined
         ).all()
 
         # Get vote counts for each participant
