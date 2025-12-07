@@ -78,50 +78,74 @@ class AIService:
             participants = self.db.query(User).join(Participant).filter(Participant.trip_id == trip_id).all()
             participant_locations = [f"{p.name}: {p.location or 'Unknown'}" for p in participants]
             
-            # Build prompt and call Gemini
-            prompt = self._build_ai_prompt(trip, preferences, participant_locations)
+            all_recommendations_data = []
+            generated_destinations = []
             
-            self._log_debug("\n" + "="*50)
-            self._log_debug(f"SENDING REQUEST TO GEMINI ({settings.GEMINI_MODEL})")
-            self._log_debug("="*50)
-            self._log_debug(f"FULL PROMPT:\n{prompt}")
-            self._log_debug("="*50)
-
-            response = self.model.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.7,
-                    max_output_tokens=8192,
+            # BATCH GENERATION: 6 batches of 1 = 6 total
+            for batch_num in range(6):
+                self._log_debug(f"Generating Batch {batch_num + 1}/6")
+                
+                # Build prompt with exclusions
+                prompt = self._build_ai_prompt(
+                    trip, 
+                    preferences, 
+                    participant_locations, 
+                    num_recommendations=1, 
+                    exclude_destinations=generated_destinations
                 )
-            )
-            ai_response_text = response.text
-            
-            self._log_debug("\n" + "="*50)
-            self._log_debug("RECEIVED RESPONSE FROM GEMINI")
-            self._log_debug("="*50)
-            self._log_debug(f"RAW RESPONSE:\n{ai_response_text}")
-            self._log_debug("="*50)
-
-            # Clean and Extract JSON
-            json_text = self._clean_json_string(ai_response_text)
-
-            try:
-                # Validate with Pydantic
-                from ..schemas.ai_recommendation import AIResponse
                 
-                # First parse as dict to handle potential loose JSON
-                data_dict = json.loads(json_text)
+                self._log_debug("\n" + "="*50)
+                self._log_debug(f"SENDING REQUEST TO GEMINI ({settings.GEMINI_MODEL}) - BATCH {batch_num + 1}")
+                self._log_debug("="*50)
+                # self._log_debug(f"FULL PROMPT:\n{prompt}") 
+                self._log_debug("="*50)
+
+                response = self.model.generate_content(
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=0.7,
+                        max_output_tokens=8192,
+                    )
+                )
+                ai_response_text = response.text
                 
-                # Validate against schema
-                validated_response = AIResponse(**data_dict)
+                self._log_debug("\n" + "="*50)
+                self._log_debug(f"RECEIVED RESPONSE FROM GEMINI - BATCH {batch_num + 1}")
+                self._log_debug("="*50)
+                self._log_debug(f"RAW RESPONSE:\n{ai_response_text}")
+                self._log_debug("="*50)
 
-                return await self._create_recommendations_from_ai(trip_id, validated_response.recommendations)
+                # Clean and Extract JSON
+                json_text = self._clean_json_string(ai_response_text)
 
-            except (json.JSONDecodeError, Exception) as e:
-                logger.error(f"Error parsing/validating AI response: {str(e)}")
-                print(f"DEBUG: Error parsing/validating AI response: {str(e)}")
-                self._log_debug(f"Error parsing/validating AI response: {str(e)}")
+                try:
+                    # Validate with Pydantic
+                    from ..schemas.ai_recommendation import AIResponse
+                    
+                    # First parse as dict to handle potential loose JSON
+                    data_dict = json.loads(json_text)
+                    
+                    # Validate against schema
+                    validated_response = AIResponse(**data_dict)
+                    
+                    # Add to collection
+                    for rec in validated_response.recommendations:
+                        # Normalize destination name for exclusion check
+                        dest_name = rec.destination or rec.location or "Unknown"
+                        generated_destinations.append(dest_name)
+                        all_recommendations_data.append(rec)
+
+                except (json.JSONDecodeError, Exception) as e:
+                    logger.error(f"Error parsing/validating AI response (Batch {batch_num + 1}): {str(e)}")
+                    self._log_debug(f"Error parsing/validating AI response (Batch {batch_num + 1}): {str(e)}")
+                    # Continue to next batch if one fails
+                    pass
+
+            if not all_recommendations_data:
+                logger.warning("No valid recommendations generated from any batch")
                 return await self._generate_fallback_recommendations(trip_id)
+
+            return await self._create_recommendations_from_ai(trip_id, all_recommendations_data)
 
         except Exception as e:
             logger.error(f"Error generating AI recommendations: {str(e)}")
@@ -221,7 +245,7 @@ class AIService:
             
         return json_str.strip()
 
-    def _build_ai_prompt(self, trip: Trip, preferences: List[Preference], participant_locations: List[str]) -> str:
+    def _build_ai_prompt(self, trip: Trip, preferences: List[Preference], participant_locations: List[str], num_recommendations: int = 3, exclude_destinations: List[str] = None) -> str:
         """Build enhanced AI prompt with trip and preference data"""
         
         # Group preferences by type
@@ -246,7 +270,6 @@ class AIService:
         specific_location = trip.destination if trip.destination and trip.destination.lower() != "open" else None
         
         # Get Trip Duration
-        # Get Trip Duration
         duration_days = 7 # Default
         if trip.start_date and trip.end_date:
              try:
@@ -255,7 +278,6 @@ class AIService:
              except:
                  pass
 
-        # Construct the prompt
         # 2. Override with explicit preference if set
         if detailed and detailed.get('duration_days'):
              duration_days = detailed.get('duration_days')
@@ -304,11 +326,15 @@ PRIORITY LOGIC (Follow EXACTLY):
    - Suggest GLOBALLY DIVERSE options.
    - Different continents.
    - Different climates/vibes.
+"""
+        if exclude_destinations:
+            prompt += f"\\n4. EXCLUSIONS: Do NOT recommend the following destinations: {', '.join(exclude_destinations)}\\n"
 
+        prompt += f"""
 Return ONLY valid JSON in this format:
-{
+{{
   "recommendations": [
-    {
+    {{
       "destination": "City, Country",
       "description": "2-3 sentences why perfect for THIS group",
       "estimated_cost_per_person": "{currency_symbol}X,XXX (Average)",
@@ -319,42 +345,42 @@ Return ONLY valid JSON in this format:
       "accommodation_options": ["Specific hotel/area 1", "Specific hotel/area 2"],
       "continent": "Continent Name",
       "experience_type": "beach|mountain|city|cultural|adventure",
-      "cost_breakdown": {
+      "cost_breakdown": {{
         "User Name (Location)": "{currency_symbol}X,XXX",
         "User Name 2 (Location)": "{currency_symbol}X,XXX"
-      },
+      }},
       "transportation_notes": "How to get there and around",
       "match_reason": "EXPLICIT explanation of how this fits the user's specific intent (Priority 4)",
       "itinerary": [
-        {
+        {{
           "day": 1,
           "focus": "Arrival & Exploration",
           "morning": "Activity...",
           "afternoon": "Activity...",
           "evening": "Activity..."
-        },
-        {
+        }},
+        {{
           "day": 2,
           "focus": "Culture & History",
           "morning": "Activity...",
           "afternoon": "Activity...",
           "evening": "Activity..."
-        }
+        }}
       ],
       "dining_recommendations": [
-        {
+        {{
           "name": "Restaurant Name",
           "cuisine": "Italian/Local/etc",
           "price_range": "$$-$$$",
           "description": "Why it fits the group (e.g. good for large groups, vegan options)"
-        }
+        }}
       ]
-    }
+    }}
   ]
-}
+}}
 
-Generate EXACTLY 6 recommendations based on the Priority Logic.
-IMPORTANT: You MUST provide exactly 6 distinct recommendations.
+Generate EXACTLY {num_recommendations} recommendations based on the Priority Logic.
+IMPORTANT: You MUST provide exactly {num_recommendations} distinct recommendations.
 IMPORTANT: Use the key "destination" for the place name. DO NOT use "location".
 IMPORTANT: Provide a detailed day-by-day itinerary for the FULL duration of the trip (up to 7 days detailed, summarize if longer).
 IMPORTANT: For "cost_breakdown", try to estimate flight+stay costs for each participant location based on the destination.
