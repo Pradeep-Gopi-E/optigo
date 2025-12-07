@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -97,14 +98,7 @@ export default function RecommendationDetailsModal({
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-4 right-4 text-white hover:bg-white/20 rounded-full"
-                        onClick={onClose}
-                    >
-                        <X className="h-6 w-6" />
-                    </Button>
+
 
                     <div className="absolute bottom-0 left-0 right-0 p-6 text-white flex justify-between items-end">
                         <div>
@@ -279,25 +273,55 @@ export default function RecommendationDetailsModal({
 
                             <TabsContent value="itinerary" className="mt-0">
                                 {itinerary.length > 0 ? (
-                                    <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
+                                    <Accordion type="single" collapsible className="w-full space-y-3">
                                         {itinerary.map((day: any, idx: number) => (
-                                            <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                                                <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-300 group-[.is-active]:bg-purple-500 text-slate-500 group-[.is-active]:text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
-                                                    <span className="font-bold text-sm">{day.day}</span>
-                                                </div>
-                                                <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                                    <div className="flex items-center justify-between space-x-2 mb-1">
-                                                        <div className="font-bold text-slate-900">{day.focus}</div>
+                                            <AccordionItem key={idx} value={`day-${day.day}`} className="border rounded-xl px-4 bg-white shadow-sm data-[state=open]:ring-2 data-[state=open]:ring-purple-100 transition-all">
+                                                <AccordionTrigger className="hover:no-underline py-4">
+                                                    <div className="flex items-center gap-4 text-left">
+                                                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-bold text-sm shrink-0">
+                                                            {day.day}
+                                                        </div>
+                                                        <span className="font-semibold text-gray-900 text-lg">{day.focus}</span>
                                                     </div>
-                                                    <div className="text-slate-500 text-sm space-y-2">
-                                                        {day.morning && <div className="flex gap-2"><span className="font-medium text-xs uppercase tracking-wider text-orange-500 w-16">Morning</span> {day.morning}</div>}
-                                                        {day.afternoon && <div className="flex gap-2"><span className="font-medium text-xs uppercase tracking-wider text-blue-500 w-16">Afternoon</span> {day.afternoon}</div>}
-                                                        {day.evening && <div className="flex gap-2"><span className="font-medium text-xs uppercase tracking-wider text-indigo-500 w-16">Evening</span> {day.evening}</div>}
-                                                    </div>
-                                                </div>
-                                            </div>
+                                                </AccordionTrigger>
+                                                <AccordionContent className="pt-2 pb-6 space-y-4 border-t border-gray-50 mt-2">
+                                                    {day.morning && (
+                                                        <div className="flex gap-4 items-start group">
+                                                            <div className="mt-1 bg-orange-50 p-2 rounded-lg shrink-0 group-hover:bg-orange-100 transition-colors">
+                                                                <CloudSun className="w-5 h-5 text-orange-500" />
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <span className="text-xs font-bold text-orange-500 uppercase tracking-wider block mb-1">Morning</span>
+                                                                <p className="text-gray-700 leading-relaxed">{day.morning}</p>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {day.afternoon && (
+                                                        <div className="flex gap-4 items-start group">
+                                                            <div className="mt-1 bg-blue-50 p-2 rounded-lg shrink-0 group-hover:bg-blue-100 transition-colors">
+                                                                <MapPin className="w-5 h-5 text-blue-500" />
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <span className="text-xs font-bold text-blue-500 uppercase tracking-wider block mb-1">Afternoon</span>
+                                                                <p className="text-gray-700 leading-relaxed">{day.afternoon}</p>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {day.evening && (
+                                                        <div className="flex gap-4 items-start group">
+                                                            <div className="mt-1 bg-indigo-50 p-2 rounded-lg shrink-0 group-hover:bg-indigo-100 transition-colors">
+                                                                <Sparkles className="w-5 h-5 text-indigo-500" />
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <span className="text-xs font-bold text-indigo-500 uppercase tracking-wider block mb-1">Evening</span>
+                                                                <p className="text-gray-700 leading-relaxed">{day.evening}</p>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </AccordionContent>
+                                            </AccordionItem>
                                         ))}
-                                    </div>
+                                    </Accordion>
                                 ) : (
                                     <div className="text-center py-12 text-gray-500">
                                         <Calendar className="w-12 h-12 mx-auto mb-3 opacity-20" />

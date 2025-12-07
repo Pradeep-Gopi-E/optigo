@@ -246,7 +246,8 @@ class AIService:
         specific_location = trip.destination if trip.destination and trip.destination.lower() != "open" else None
         
         # Get Trip Duration
-        duration_days = detailed.get('duration_days', 7) # Default to 7 if not set
+        # Get Trip Duration
+        duration_days = 7 # Default
         if trip.start_date and trip.end_date:
              try:
                  delta = trip.end_date - trip.start_date
@@ -255,6 +256,10 @@ class AIService:
                  pass
 
         # Construct the prompt
+        # 2. Override with explicit preference if set
+        if detailed and detailed.get('duration_days'):
+             duration_days = detailed.get('duration_days')
+
         prompt = f"""You are an expert travel AI specializing in group trips.
         
 TRIP CONTEXT:
