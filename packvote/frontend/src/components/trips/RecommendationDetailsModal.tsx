@@ -10,7 +10,7 @@ import { Recommendation, recommendationsAPI } from '@/lib/api'
 import { formatCurrency, convertCurrency } from '@/lib/utils'
 import { DollarSign, Sparkles, CloudSun, X, Clock, MapPin, Calendar, Utensils, Hotel, Edit2, Save, Check, User } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useAuthStore } from '@/lib/store'
+
 
 interface RecommendationDetailsModalProps {
     isOpen: boolean

@@ -3,16 +3,28 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Plus, Users, Calendar, Vote, Brain, MapPin, TrendingUp, LogOut, Menu } from 'lucide-react'
-import { tripsAPI, Trip } from '@/lib/api'
+import { Plus, Users, Calendar, Vote, Brain, MapPin, TrendingUp, LogOut, Menu, Palette } from 'lucide-react'
+import { tripsAPI, Trip, authAPI } from '@/lib/api'
 import { formatDate, generateInitials } from '@/lib/utils'
 import Link from 'next/link'
 import { Logo } from '@/components/ui/logo'
+import SplitText from '@/components/ui/SplitText'
+import ParallaxHero from '@/components/ui/ParallaxHero'
+import { themes } from '@/lib/themes'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu"
+import { Button } from '@/components/ui/button'
+import toast from 'react-hot-toast'
 
 interface User {
   id: string
   name: string
   email: string
+  dashboard_theme?: string
 }
 
 export default function DashboardPage() {
@@ -21,18 +33,38 @@ export default function DashboardPage() {
   const [trips, setTrips] = useState<Trip[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [currentTheme, setCurrentTheme] = useState('wilderness')
 
   useEffect(() => {
     const userData = localStorage.getItem('user')
     if (userData) {
-      setUser(JSON.parse(userData))
+      const parsedUser = JSON.parse(userData)
+      setUser(parsedUser)
+      if (parsedUser.dashboard_theme) {
+        setCurrentTheme(parsedUser.dashboard_theme)
+      }
     } else {
       router.push('/auth/login')
       return
     }
 
     fetchTrips()
+    fetchUserProfile()
   }, [router])
+
+  const fetchUserProfile = async () => {
+    try {
+      const profile = await authAPI.getMe()
+      setUser(profile)
+      if (profile.dashboard_theme) {
+        setCurrentTheme(profile.dashboard_theme)
+        // Update local storage to keep it in sync
+        localStorage.setItem('user', JSON.stringify(profile))
+      }
+    } catch (error) {
+      console.error('Failed to fetch profile:', error)
+    }
+  }
 
   const fetchTrips = async () => {
     try {
@@ -42,6 +74,23 @@ export default function DashboardPage() {
       console.error('Failed to fetch trips:', error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleThemeChange = async (themeId: string) => {
+    setCurrentTheme(themeId)
+    try {
+      await authAPI.updateProfile({ dashboard_theme: themeId })
+      toast.success(`Theme updated to ${themes[themeId].name}`)
+      // Update local user state
+      if (user) {
+        const updatedUser = { ...user, dashboard_theme: themeId }
+        setUser(updatedUser)
+        localStorage.setItem('user', JSON.stringify(updatedUser))
+      }
+    } catch (error) {
+      console.error('Failed to update theme:', error)
+      toast.error('Failed to save theme preference')
     }
   }
 
@@ -82,7 +131,12 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 relative overflow-hidden">
+      {/* Parallax Background */}
+      <div className="absolute inset-0 z-0">
+        <ParallaxHero theme={currentTheme} title="" className="h-full w-full" />
+      </div>
+
       {/* Mobile menu overlay */}
       {sidebarOpen && (
         <div
@@ -92,11 +146,11 @@ export default function DashboardPage() {
       )}
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white/90 backdrop-blur-md shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}>
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-6 border-b">
+          <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200/50">
             <div className="flex items-center">
               <Logo />
             </div>
@@ -119,14 +173,14 @@ export default function DashboardPage() {
             </Link>
             <Link
               href="/trips"
-              className="flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100"
+              className="flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100/50"
             >
               <MapPin className="w-5 h-5 mr-3" />
               My Trips
             </Link>
             <Link
               href="/trips/create"
-              className="flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100"
+              className="flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100/50"
             >
               <Plus className="w-5 h-5 mr-3" />
               Create Trip
@@ -134,7 +188,7 @@ export default function DashboardPage() {
           </nav>
 
           {/* User Menu */}
-          <div className="border-t px-4 py-6">
+          <div className="border-t border-gray-200/50 px-4 py-6">
             <div className="flex items-center mb-4">
               <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white font-semibold">
                 {user ? generateInitials(user.name) : 'U'}
@@ -146,7 +200,7 @@ export default function DashboardPage() {
             </div>
             <button
               onClick={handleLogout}
-              className="flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100"
+              className="flex items-center w-full px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100/50"
             >
               <LogOut className="w-5 h-5 mr-3" />
               Sign out
@@ -156,9 +210,9 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Content */}
-      <div className="lg:ml-64">
+      <div className="lg:ml-64 relative z-10">
         {/* Header */}
-        <header className="bg-white shadow-sm border-b">
+        <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-200/50">
           <div className="px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
               <div className="flex items-center">
@@ -170,13 +224,26 @@ export default function DashboardPage() {
                 </button>
                 <h1 className="ml-4 text-xl font-semibold text-gray-900">Dashboard</h1>
               </div>
-              <Link
-                href="/trips/create"
-                className="btn btn-primary flex items-center"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                New Trip
-              </Link>
+
+              {/* Theme Switcher */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="ml-auto">
+                    <Palette className="h-5 w-5 text-gray-600" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {Object.values(themes).map((theme) => (
+                    <DropdownMenuItem
+                      key={theme.id}
+                      onClick={() => handleThemeChange(theme.id)}
+                      className={currentTheme === theme.id ? "bg-accent" : ""}
+                    >
+                      {theme.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </header>
@@ -184,19 +251,18 @@ export default function DashboardPage() {
         {/* Dashboard Content */}
         <main className="p-4 sm:p-6 lg:p-8">
           {/* Welcome Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="mb-8"
-          >
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Welcome back, {user?.name}! 👋
-            </h2>
-            <p className="text-gray-600">
+          <div className="mb-12 text-center">
+            <SplitText
+              text={`Welcome back, ${user?.name}!`}
+              className="text-5xl md:text-6xl font-bold text-white mb-4 drop-shadow-lg"
+              delay={50}
+              duration={1}
+              tag="h1"
+            />
+            <p className="text-xl text-white/90 drop-shadow-md">
               Here's what's happening with your group trips
             </p>
-          </motion.div>
+          </div>
 
           {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -204,7 +270,7 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="bg-white rounded-xl shadow-sm p-6"
+              className="bg-white/90 backdrop-blur-md rounded-xl shadow-lg p-6 border border-white/20"
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -221,7 +287,7 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-white rounded-xl shadow-sm p-6"
+              className="bg-white/90 backdrop-blur-md rounded-xl shadow-lg p-6 border border-white/20"
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -238,7 +304,7 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-white rounded-xl shadow-sm p-6"
+              className="bg-white/90 backdrop-blur-md rounded-xl shadow-lg p-6 border border-white/20"
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -255,7 +321,7 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="bg-white rounded-xl shadow-sm p-6"
+              className="bg-white/90 backdrop-blur-md rounded-xl shadow-lg p-6 border border-white/20"
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -267,70 +333,6 @@ export default function DashboardPage() {
               </div>
               <h3 className="text-gray-600 font-medium">Total Trips</h3>
             </motion.div>
-          </div>
-
-          {/* Recent Trips */}
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Recent Trips</h3>
-              <Link href="/trips" className="text-primary hover:text-primary/80 text-sm font-medium">
-                View all
-              </Link>
-            </div>
-            <div className="divide-y">
-              {trips.length === 0 ? (
-                <div className="p-8 text-center">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <MapPin className="w-8 h-8 text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No trips yet</h3>
-                  <p className="text-gray-500 mb-6">Start planning your first group adventure!</p>
-                  <Link href="/trips/create" className="btn btn-primary inline-flex items-center">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Trip
-                  </Link>
-                </div>
-              ) : (
-                trips.slice(0, 5).map((trip) => (
-                  <Link
-                    key={trip.id}
-                    href={`/trips/${trip.id}`}
-                    className="block hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getStatusColor(trip.status)}`}>
-                            {getStatusIcon(trip.status)}
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-900">{trip.title}</h4>
-                            <div className="flex items-center text-xs text-gray-500 mt-1">
-                              <Calendar className="w-3 h-3 mr-1" />
-                              {formatDate(trip.start_date)} - {formatDate(trip.end_date)}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                          <div className="flex -space-x-2">
-                            {/* Placeholder for participants avatars */}
-                            <div className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-600">
-                              {generateInitials(user?.name || '')}
-                            </div>
-                          </div>
-                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(trip.status)}`}>
-                            {trip.status.charAt(0).toUpperCase() + trip.status.slice(1)}
-                          </span>
-                          <div className="text-gray-400 hover:text-gray-600">
-                            <TrendingUp className="w-5 h-5" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                ))
-              )}
-            </div>
           </div>
         </main>
       </div>

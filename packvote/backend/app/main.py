@@ -100,6 +100,15 @@ async def startup_event():
                 logger.info("Added image_url column")
         except Exception as e:
             logger.info(f"Migration note (image_url): {e}")
+
+        # Manual migration for dashboard_theme
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE users ADD COLUMN dashboard_theme VARCHAR(50) DEFAULT 'wilderness' NOT NULL"))
+                conn.commit()
+                logger.info("Added dashboard_theme column")
+        except Exception as e:
+            logger.info(f"Migration note (dashboard_theme): {e}")
             
     except Exception as e:
         logger.error(f"Error creating database tables: {str(e)}")

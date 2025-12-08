@@ -17,6 +17,9 @@ export interface Trip {
   joined_at?: string;
   vote_status: 'not_voted' | 'voted' | 'skipped';
   image_url?: string;
+  description?: string;
+  participant_count?: number;
+  created_by?: string;
 }
 
 export interface TripDetail {
@@ -36,6 +39,7 @@ export interface TripDetail {
   created_at: string;
   updated_at: string;
   allow_member_recommendations: boolean;
+  allow_member_edits?: boolean;
   expected_participants?: number;
   image_url?: string;
 }
@@ -185,7 +189,7 @@ export const authAPI = {
     return response.data;
   },
 
-  updateProfile: async (data: { name?: string; telegram_id?: string; location?: string; preferred_currency?: string }) => {
+  updateProfile: async (data: { name?: string; telegram_id?: string; location?: string; preferred_currency?: string; dashboard_theme?: string }) => {
     const headers = getAuthHeaders();
     const response = await axios.put(`${API_BASE_URL}/auth/me`, data, { headers });
     return response.data;
@@ -248,6 +252,18 @@ export const tripsAPI = {
   updateParticipantRole: async (tripId: string, participantId: string, role: string) => {
     const headers = getAuthHeaders();
     const response = await axios.patch(`${API_BASE_URL}/trips/${tripId}/participants/${participantId}`, { role }, { headers });
+    return response.data;
+  },
+
+  removeParticipant: async (tripId: string, participantId: string) => {
+    const headers = getAuthHeaders();
+    const response = await axios.delete(`${API_BASE_URL}/trips/${tripId}/participants/${participantId}`, { headers });
+    return response.data;
+  },
+
+  joinTrip: async (inviteCode: string) => {
+    const headers = getAuthHeaders();
+    const response = await axios.post(`${API_BASE_URL}/trips/join/${inviteCode}`, {}, { headers });
     return response.data;
   },
 };

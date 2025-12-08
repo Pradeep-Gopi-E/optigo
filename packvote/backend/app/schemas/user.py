@@ -21,6 +21,7 @@ class UserUpdate(BaseModel):
     telegram_id: Optional[str] = None
     location: Optional[str] = None
     preferred_currency: Optional[str] = None
+    dashboard_theme: Optional[str] = None
 
 
 class UserResponse(BaseModel):
@@ -30,6 +31,7 @@ class UserResponse(BaseModel):
     telegram_id: Optional[str] = None
     location: Optional[str] = None
     preferred_currency: str = "USD"
+    dashboard_theme: str = "wilderness"
     is_active: bool
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

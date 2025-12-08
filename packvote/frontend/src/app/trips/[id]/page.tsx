@@ -888,7 +888,7 @@ export default function TripDetailPage() {
                 recommendation={viewingRec}
                 tripId={tripId}
                 userCurrency={currency}
-                userRole={userRole}
+                isOwnerOrAdmin={userRole === 'owner' || userRole === 'admin'}
                 onUpdate={() => fetchRecommendations()}
             />
         </div>
