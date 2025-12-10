@@ -3,15 +3,14 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { User, Mail, MessageCircle, Save, LogOut, Shield, Bell, Settings, MapPin, Banknote } from 'lucide-react'
+import { User, MessageCircle, ChevronRight, Check, ArrowLeft, LogOut, Banknote } from 'lucide-react'
 import { authAPI } from '@/lib/api'
-import { validateEmail } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Navigation } from '@/components/layout/navigation'
+import Link from 'next/link'
+import { Logo } from '@/components/ui/logo'
 import toast from 'react-hot-toast'
 import { countries } from '@/lib/countries'
+import { generateInitials } from '@/lib/utils'
 
 interface UserSettings {
   name: string
@@ -79,13 +78,12 @@ export default function SettingsPage() {
         preferred_currency: formData.preferred_currency
       })
 
-      // Update local storage
       localStorage.setItem('user', JSON.stringify({
         ...user,
         ...updatedUser
       }))
 
-      setUser(prev => ({ ...prev, ...updatedUser }))
+      setUser((prev: any) => ({ ...prev, ...updatedUser }))
       toast.success('Profile updated successfully')
     } catch (error: any) {
       toast.error(error.response?.data?.detail || 'Failed to update profile')
@@ -98,296 +96,229 @@ export default function SettingsPage() {
     localStorage.removeItem('access_token')
     localStorage.removeItem('user')
     router.push('/auth/login')
-    toast.success('Logged out successfully')
   }
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="min-h-screen flex items-center justify-center bg-[#09090b]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-px w-24 bg-zinc-800 overflow-hidden">
+            <div className="h-full w-1/2 bg-zinc-200 animate-shimmer-line" />
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navigation user={user} currentPage="settings" />
+    <div className="min-h-screen bg-[#09090b] text-zinc-200 font-body selection:bg-zinc-800 selection:text-zinc-100">
 
-      <div className="lg:ml-64">
-        {/* Header */}
-        <div className="bg-white shadow-sm border-b">
-          <div className="px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center">
-                <Settings className="w-6 h-6 mr-3 text-gray-600" />
-                <h1 className="text-xl font-semibold text-gray-900">Settings</h1>
+      {/* 1. MATCHING TOP NAVIGATION */}
+      <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-6 bg-[#09090b]/80 backdrop-blur-md border-b border-white/5">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <Link href="/dashboard" className="group">
+            <Logo />
+          </Link>
+
+          <div className="flex items-center gap-6">
+            <div className="hidden md:flex items-center gap-8 text-sm font-medium tracking-wide text-zinc-500">
+              <Link href="/dashboard" className="hover:text-zinc-300 transition-colors">Dashboard</Link>
+              <Link href="/trips" className="hover:text-zinc-300 transition-colors">Journeys</Link>
+              <Link href="/settings" className="text-zinc-100 transition-colors">Settings</Link>
+            </div>
+            <div className="h-4 w-px bg-zinc-800 hidden md:block" />
+            <button
+              onClick={handleLogout}
+              className="text-xs font-medium text-zinc-500 hover:text-zinc-300 transition-colors uppercase tracking-wider"
+            >
+              Log Out
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="pt-32 pb-20 px-6 relative">
+        {/* Ambient Glow */}
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-white/[0.02] blur-[120px] rounded-full pointer-events-none" />
+
+        <div className="max-w-2xl mx-auto relative z-10">
+
+          {/* Header Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="flex flex-col items-center text-center mb-16"
+          >
+            <div className="relative mb-6 group">
+              <div className="w-24 h-24 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center text-3xl font-heading text-white shadow-[0_0_40px_-10px_rgba(255,255,255,0.2)] transition-all duration-500">
+                {generateInitials(user?.name || 'User')}
               </div>
             </div>
+
+            <h1 className="text-4xl md:text-5xl font-heading text-zinc-100 mb-2">
+              Settings
+            </h1>
+            <p className="text-zinc-500 text-sm tracking-widest uppercase font-medium">
+              Manage your personal preferences
+            </p>
+          </motion.div>
+
+          {/* Form */}
+          <motion.form
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            onSubmit={handleSubmit}
+            className="space-y-12"
+          >
+            {/* Identity Section */}
+            <div className="space-y-8">
+              <div className="grid grid-cols-1 gap-8">
+                <div className="group">
+                  <label className="block text-[10px] uppercase tracking-widest font-medium text-zinc-500 mb-2 group-focus-within:text-white transition-colors">
+                    Full Name
+                  </label>
+                  <input
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    className="w-full bg-transparent border-b border-white/10 px-0 py-4 text-xl text-white placeholder:text-zinc-800 focus:outline-none focus:border-white transition-colors rounded-none font-light"
+                    placeholder="Enter your name"
+                  />
+                </div>
+
+                <div className="group opacity-60">
+                  <label className="block text-[10px] uppercase tracking-widest font-medium text-zinc-500 mb-2">
+                    Email Address
+                  </label>
+                  <input
+                    value={formData.email}
+                    disabled
+                    className="w-full bg-transparent border-b border-white/10 px-0 py-4 text-xl text-zinc-500 cursor-not-allowed rounded-none font-light"
+                  />
+                </div>
+
+                <div className="group">
+                  <label className="block text-[10px] uppercase tracking-widest font-medium text-zinc-500 mb-2 group-focus-within:text-white transition-colors">
+                    Home Base
+                  </label>
+                  <div className="relative">
+                    <select
+                      name="location"
+                      value={formData.location}
+                      onChange={handleInputChange}
+                      className="w-full bg-transparent border-b border-white/10 px-0 py-4 text-xl text-white focus:outline-none focus:border-white transition-colors rounded-none appearance-none font-light cursor-pointer"
+                    >
+                      <option value="" className="bg-zinc-900 text-zinc-500">Select Country</option>
+                      {countries.map(c => (
+                        <option key={c} value={c} className="bg-zinc-900 text-white">{c}</option>
+                      ))}
+                    </select>
+                    <ChevronRight className="absolute right-0 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-600 pointer-events-none rotate-90" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Currency Section - REFINED GLASS TILE */}
+            <div className="space-y-4 pt-4 border-t border-white/5">
+              <label className="block text-[10px] uppercase tracking-widest font-medium text-zinc-500">
+                Global Preferences
+              </label>
+
+              <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-6 flex items-center justify-between hover:border-white/10 transition-colors group">
+                <div className="flex items-center gap-5">
+                  <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20 group-hover:scale-105 transition-transform">
+                    <Banknote className="w-6 h-6" strokeWidth={1.5} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium text-white mb-1">Primary Currency</h3>
+                    <p className="text-sm text-zinc-500">Used for all AI cost estimations</p>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <select
+                    name="preferred_currency"
+                    value={formData.preferred_currency}
+                    onChange={handleInputChange}
+                    className="appearance-none bg-zinc-950 border border-white/10 text-white pl-4 pr-10 py-2.5 rounded-lg focus:outline-none focus:border-white/30 transition-colors cursor-pointer text-sm font-medium tracking-wide hover:bg-zinc-900"
+                  >
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
+                    <option value="JPY">JPY (¥)</option>
+                    <option value="AUD">AUD (A$)</option>
+                    <option value="CAD">CAD (C$)</option>
+                    <option value="CHF">CHF (Fr)</option>
+                    <option value="CNY">CNY (¥)</option>
+                    <option value="INR">INR (₹)</option>
+                  </select>
+                  <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none rotate-90" />
+                </div>
+              </div>
+            </div>
+
+            {/* Integrations */}
+            <div className="space-y-4">
+              <label className="block text-[10px] uppercase tracking-widest font-medium text-zinc-500">
+                Integrations
+              </label>
+
+              <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between hover:border-white/10 transition-colors group">
+                <div className="flex items-center gap-5 mb-4 sm:mb-0">
+                  <div className="w-12 h-12 rounded-full bg-[#0088cc]/10 flex items-center justify-center text-[#0088cc] border border-[#0088cc]/20 group-hover:scale-105 transition-transform">
+                    <MessageCircle className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium text-white mb-1">Telegram</h3>
+                    <p className="text-sm text-zinc-500">Get trip updates via bot</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <div className="relative w-full sm:w-auto">
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">@</span>
+                    <input
+                      name="telegram_id"
+                      value={formData.telegram_id?.replace('@', '')}
+                      onChange={(e) => setFormData(prev => ({ ...prev, telegram_id: e.target.value }))}
+                      placeholder="username"
+                      className="bg-transparent border-b border-white/10 w-full sm:w-32 py-1 pl-4 text-white text-sm focus:outline-none focus:border-[#0088cc] transition-colors placeholder:text-zinc-700"
+                    />
+                  </div>
+                  {formData.telegram_id && (
+                    <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20">
+                      <Check className="w-4 h-4" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="pt-8 flex flex-col items-center gap-6">
+              <Button
+                type="submit"
+                disabled={isSaving}
+                className="bg-zinc-100 text-zinc-950 hover:bg-white text-base font-medium px-10 h-14 rounded-full transition-all shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+              >
+                {isSaving ? 'Saving Changes...' : 'Save Profile'}
+              </Button>
+            </div>
+
+          </motion.form>
+
+          <div className="mt-20 border-t border-white/5 pt-8 text-center">
+            <button onClick={handleLogout} className="text-zinc-600 hover:text-red-400 text-xs uppercase tracking-widest transition-colors flex items-center justify-center gap-2 mx-auto">
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </button>
           </div>
         </div>
-
-        {/* Content */}
-        <div className="px-4 sm:px-6 lg:px-8 py-8">
-          <div className="max-w-4xl mx-auto space-y-8">
-            {/* Profile Section */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <User className="w-5 h-5 mr-2" />
-                    Profile Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Name */}
-                    <div>
-                      <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                        Full Name
-                      </label>
-                      <Input
-                        id="name"
-                        name="name"
-                        type="text"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        placeholder="Enter your full name"
-                        required
-                      />
-                    </div>
-
-                    {/* Email (Read-only) */}
-                    <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                        Email Address
-                      </label>
-                      <Input
-                        id="email"
-                        name="email"
-                        type="email"
-                        value={formData.email}
-                        disabled
-                        className="bg-gray-50"
-                      />
-                      <p className="mt-1 text-sm text-gray-500">
-                        Email address cannot be changed. Contact support if needed.
-                      </p>
-                    </div>
-
-                    {/* Location / Country */}
-                    <div>
-                      <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
-                        Country
-                      </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <MapPin className="h-5 w-5 text-gray-400" />
-                        </div>
-                        <select
-                          id="location"
-                          name="location"
-                          value={formData.location}
-                          onChange={handleInputChange}
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-10 appearance-none"
-                        >
-                          <option value="">Select your country</option>
-                          {countries.map((country) => (
-                            <option key={country} value={country}>
-                              {country}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Preferred Currency */}
-                    <div>
-                      <label htmlFor="preferred_currency" className="block text-sm font-medium text-gray-700 mb-2">
-                        Preferred Currency
-                      </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Banknote className="h-5 w-5 text-gray-400" />
-                        </div>
-                        <select
-                          id="preferred_currency"
-                          name="preferred_currency"
-                          value={formData.preferred_currency}
-                          onChange={handleInputChange}
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-10 appearance-none"
-                        >
-                          <option value="USD">USD ($)</option>
-                          <option value="EUR">EUR (€)</option>
-                          <option value="GBP">GBP (£)</option>
-                          <option value="JPY">JPY (¥)</option>
-                          <option value="AUD">AUD (A$)</option>
-                          <option value="CAD">CAD (C$)</option>
-                          <option value="CHF">CHF (Fr)</option>
-                          <option value="CNY">CNY (¥)</option>
-                          <option value="INR">INR (₹)</option>
-                        </select>
-                        <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Telegram ID */}
-                    <div>
-                      <label htmlFor="telegram_id" className="block text-sm font-medium text-gray-700 mb-2">
-                        Telegram Username (Optional)
-                      </label>
-                      <Input
-                        id="telegram_id"
-                        name="telegram_id"
-                        type="text"
-                        value={formData.telegram_id}
-                        onChange={handleInputChange}
-                        placeholder="@username"
-                      />
-                      <p className="mt-1 text-sm text-gray-500">
-                        Add your Telegram username to receive trip notifications and survey invitations.
-                      </p>
-                    </div>
-
-                    {/* Save Button */}
-                    <div className="flex justify-end">
-                      <Button
-                        type="submit"
-                        disabled={isSaving}
-                        className="min-w-[120px]"
-                      >
-                        {isSaving ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            Saving...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="w-4 h-4 mr-2" />
-                            Save Changes
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </form>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            {/* Integration Section */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-            >
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <MessageCircle className="w-5 h-5 mr-2" />
-                    Integrations
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {/* Telegram Integration */}
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                          <MessageCircle className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-gray-900">Telegram Bot</h3>
-                          <p className="text-sm text-gray-500">
-                            {formData.telegram_id
-                              ? 'Connected as ' + formData.telegram_id
-                              : 'Not connected'
-                            }
-                          </p>
-                        </div>
-                      </div>
-                      {formData.telegram_id ? (
-                        <span className="text-sm text-green-600 font-medium">Connected</span>
-                      ) : (
-                        <Button variant="outline" size="sm">
-                          Connect
-                        </Button>
-                      )}
-                    </div>
-
-                    {/* Notifications */}
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
-                          <Bell className="w-5 h-5 text-green-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-gray-900">Email Notifications</h3>
-                          <p className="text-sm text-gray-500">Receive trip updates via email</p>
-                        </div>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                      </label>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            {/* Account Actions */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.2 }}
-            >
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Shield className="w-5 h-5 mr-2" />
-                    Account Actions
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border border-red-200 rounded-lg">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mr-3">
-                          <LogOut className="w-5 h-5 text-red-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-gray-900">Sign Out</h3>
-                          <p className="text-sm text-gray-500">Sign out of your account</p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleLogout}
-                        className="border-red-300 text-red-600 hover:bg-red-50"
-                      >
-                        Sign Out
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </div>
-        </div>
-      </div>
+      </main>
     </div>
   )
 }

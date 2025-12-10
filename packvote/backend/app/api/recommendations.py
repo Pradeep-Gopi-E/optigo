@@ -8,7 +8,7 @@ from ..services.auth import AuthService
 from ..services.ai_service import AIService
 from ..services.voting import VotingService
 from ..services.unsplash_service import unsplash_service
-from ..models import Recommendation, Trip
+from ..models import Recommendation, Trip, Vote
 from ..utils.database import get_db
 from ..api.auth import get_current_user
 import logging
@@ -136,10 +136,24 @@ async def generate_ai_recommendations(
 
         # Clear existing AI recommendations if requested
         if clear_existing:
+            # Step 1: Delete Votes associated with AI recommendations for this trip
+            # We need to find the IDs of recommendations that will be deleted
+            ai_recs_query = db.query(Recommendation.id).filter(
+                Recommendation.trip_id == trip_id,
+                Recommendation.ai_generated == True
+            )
+            
+            # Delete votes for these recommendations
+            db.query(Vote).filter(
+                Vote.recommendation_id.in_(ai_recs_query)
+            ).delete(synchronize_session=False)
+
+            # Step 2: Delete the recommendations themselves
             db.query(Recommendation).filter(
                 Recommendation.trip_id == trip_id,
                 Recommendation.ai_generated == True
-            ).delete()
+            ).delete(synchronize_session=False)
+            
             db.commit()
 
         # Generate AI recommendations

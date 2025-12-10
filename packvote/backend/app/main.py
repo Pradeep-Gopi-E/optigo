@@ -100,6 +100,16 @@ async def startup_event():
                 logger.info("Added image_url column")
         except Exception as e:
             logger.info(f"Migration note (image_url): {e}")
+
+        # Manual migration for itinerary and destination_images
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE trips ADD COLUMN itinerary JSONB"))
+                conn.execute(text("ALTER TABLE trips ADD COLUMN destination_images JSONB"))
+                conn.commit()
+                logger.info("Added itinerary and destination_images columns")
+        except Exception as e:
+            logger.info(f"Migration note (itinerary/images): {e}")
             
     except Exception as e:
         logger.error(f"Error creating database tables: {str(e)}")

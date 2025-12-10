@@ -6,7 +6,7 @@ import { LOGO_PATHS } from './logo-data'
 
 interface AnimatedLogoProps {
     className?: string
-    size?: 'sm' | 'md' | 'lg' | 'xl'
+    size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl'
 }
 
 export function AnimatedLogo({ className, size = 'lg' }: AnimatedLogoProps) {
@@ -15,6 +15,7 @@ export function AnimatedLogo({ className, size = 'lg' }: AnimatedLogoProps) {
         md: 'w-32 h-32',
         lg: 'w-48 h-48',
         xl: 'w-64 h-64',
+        '2xl': 'w-96 h-96',
     }
 
     const currentSize = sizes[size]

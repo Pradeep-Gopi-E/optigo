@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Any, Dict
 from datetime import datetime
 from enum import Enum
 from uuid import UUID
@@ -58,6 +58,8 @@ class TripResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
     image_url: Optional[str] = None
+    itinerary: Optional[List[Dict[str, Any]]] = None
+    destination_images: Optional[List[str]] = None
 
     class Config:
         from_attributes = True

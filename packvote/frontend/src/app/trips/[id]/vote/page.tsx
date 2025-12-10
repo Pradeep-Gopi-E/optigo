@@ -411,6 +411,7 @@ export default function VotingPage() {
         tripId={tripId}
         isOwnerOrAdmin={isOwnerOrAdmin}
         onUpdate={fetchData}
+        participants={trip?.participants}
       />
     </div>
   )

@@ -6,19 +6,20 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export const formatCurrency = (amount: number | null | undefined, currency: string = 'USD'): string => {
+export const formatCurrency = (amount: number | null | undefined, currency: string = 'USD', showSymbol: boolean = true): string => {
   if (amount === null || amount === undefined) return 'N/A'
   try {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
+    const formatter = new Intl.NumberFormat('en-US', {
+      style: showSymbol ? 'currency' : 'decimal',
       currency: currency,
       minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
       maximumFractionDigits: 2,
-    }).format(amount)
+    })
+    return formatter.format(amount)
   } catch (error) {
-    // Fallback for invalid currency codes
+    // Fallback
     return new Intl.NumberFormat('en-US', {
-      style: 'currency',
+      style: showSymbol ? 'currency' : 'decimal',
       currency: 'USD',
       minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
       maximumFractionDigits: 2,

@@ -4,6 +4,7 @@ import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 import json
 import logging
+import re
 
 from ..models import Preference, Recommendation, Trip, User, Participant
 from ..config import settings
@@ -74,9 +75,16 @@ class AIService:
             # Get all preferences for this trip
             preferences = self.db.query(Preference).filter(Preference.trip_id == trip_id).all()
 
-            # Get participants and their locations
+            # Get participants and their details
             participants = self.db.query(User).join(Participant).filter(Participant.trip_id == trip_id).all()
-            participant_locations = [f"{p.name}: {p.location or 'Unknown'}" for p in participants]
+            participants_data = []
+            for p in participants:
+                participants_data.append({
+                    "id": str(p.id),
+                    "name": p.name,
+                    "location": p.location or "Unknown",
+                    "currency": p.preferred_currency or "USD"
+                })
             
             all_recommendations_data = []
             generated_destinations = []
@@ -89,7 +97,7 @@ class AIService:
                 prompt = self._build_ai_prompt(
                     trip, 
                     preferences, 
-                    participant_locations, 
+                    participants_data, 
                     num_recommendations=1, 
                     exclude_destinations=generated_destinations
                 )
@@ -97,7 +105,7 @@ class AIService:
                 self._log_debug("\n" + "="*50)
                 self._log_debug(f"SENDING REQUEST TO GEMINI ({settings.GEMINI_MODEL}) - BATCH {batch_num + 1}")
                 self._log_debug("="*50)
-                # self._log_debug(f"FULL PROMPT:\n{prompt}") 
+                self._log_debug(f"FULL PROMPT:\n{prompt}") 
                 self._log_debug("="*50)
 
                 response = self.model.generate_content(
@@ -245,7 +253,7 @@ class AIService:
             
         return json_str.strip()
 
-    def _build_ai_prompt(self, trip: Trip, preferences: List[Preference], participant_locations: List[str], num_recommendations: int = 3, exclude_destinations: List[str] = None) -> str:
+    def _build_ai_prompt(self, trip: Trip, preferences: List[Preference], participants_data: List[Dict[str, Any]], num_recommendations: int = 3, exclude_destinations: List[str] = None) -> str:
         """Build enhanced AI prompt with trip and preference data"""
         
         # Group preferences by type
@@ -256,11 +264,14 @@ class AIService:
         # Get participant count
         expected_size = trip.expected_participants or "Unknown"
 
-        # Determine Currency
-        currency_code, currency_symbol = self._determine_currency(participant_locations)
-        
-        # Format locations
-        locations_str = ", ".join(participant_locations) if participant_locations else "Various"
+        # Format participants for AI
+        participants_str = ""
+        for p in participants_data:
+            participants_str += f"- User {p['name']} (ID: {p['id']}, Origin: {p['location']}) prefers {p['currency']}\n"
+
+        # Default for header
+        currency_code = "USD"
+        currency_symbol = "$"
 
         # Extract preference types
         detailed = preference_data.get('detailed', {})
@@ -292,8 +303,10 @@ TRIP CONTEXT:
 │ Budget (per person)     │ {currency_symbol}{trip.budget_min or 'Flex'} - {currency_symbol}{trip.budget_max or 'Flex'} ({currency_code}) │
 │ Travel Dates            │ {trip.start_date or 'Flexible'} to {trip.end_date or 'Flexible'} │
 │ Destination Input       │ {specific_location or 'Open/Undecided'}     │
-│ Participant Locations   │ {locations_str}                  │
 └─────────────────────────┴──────────────────────────────────┘
+
+PARTICIPANTS & CURRENCIES:
+{participants_str}
 
 GROUP PREFERENCES:
 """
@@ -346,8 +359,8 @@ Return ONLY valid JSON in this format:
       "continent": "Continent Name",
       "experience_type": "beach|mountain|city|cultural|adventure",
       "cost_breakdown": {{
-        "User Name (Location)": "{currency_symbol}X,XXX",
-        "User Name 2 (Location)": "{currency_symbol}X,XXX"
+        "user_id_1": {{ "amount": 1200, "currency": "USD", "display_string": "$1,200" }},
+        "user_id_2": {{ "amount": 110000, "currency": "JPY", "display_string": "¥110,000" }}
       }},
       "transportation_notes": "How to get there and around",
       "match_reason": "EXPLICIT explanation of how this fits the user's specific intent (Priority 4)",
@@ -383,7 +396,7 @@ Generate EXACTLY {num_recommendations} recommendations based on the Priority Log
 IMPORTANT: You MUST provide exactly {num_recommendations} distinct recommendations.
 IMPORTANT: Use the key "destination" for the place name. DO NOT use "location".
 IMPORTANT: Provide a detailed day-by-day itinerary for the FULL duration of the trip (up to 7 days detailed, summarize if longer).
-IMPORTANT: For "cost_breakdown", try to estimate flight+stay costs for each participant location based on the destination.
+IMPORTANT: For "cost_breakdown", you MUST estimate the cost for each specific user in their preferred currency. Do not return a string. Return a structured object keyed by the User ID provided in the "PARTICIPANTS" section.
 IMPORTANT: Return RAW JSON only. Do not use Markdown code blocks. Do not include comments. Ensure all keys and values are double-quoted.
 """
         return prompt
@@ -456,23 +469,22 @@ IMPORTANT: Return RAW JSON only. Do not use Markdown code blocks. Do not include
         except Exception as e:
             logger.error(f"Error creating recommendations from AI data: {str(e)}")
             print(f"DEBUG: Error creating recommendations from AI data: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            self.db.rollback()
-            return []
-
-    def _parse_cost(self, cost_string: str) -> Optional[float]:
-        """Parse cost string to extract numeric value"""
-        if not cost_string:
-            return None
-        try:
-            import re
-            cost_match = re.search(r'\$?([0-9,]+)', str(cost_string).replace(',', ''))
-            if cost_match:
-                return float(cost_match.group(1))
+            # cost_match = re.search(r'\$?([0-9,]+)', str(cost_string).replace(',', ''))
+            # if cost_match:
+            #     return float(cost_match.group(1))
         except Exception:
             pass
         return None
+
+    def _parse_cost(self, cost_string: str) -> float:
+        try:
+            if not cost_string:
+                return 0.0
+            # Remove currency symbols and commas
+            clean_cost = re.sub(r'[^\d.]', '', str(cost_string))
+            return float(clean_cost) if clean_cost else 0.0
+        except:
+            return 0.0
 
     async def _generate_fallback_recommendations(self, trip_id: str) -> List[Recommendation]:
         """Generate fallback recommendations when AI is not available"""

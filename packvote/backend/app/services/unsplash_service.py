@@ -37,4 +37,31 @@ class UnsplashService:
             print(f"Error fetching image from Unsplash: {e}")
             return None
 
+    async def get_photos(self, query: str, limit: int = 5) -> list[str]:
+        if not self.access_key:
+            return []
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}/search/photos",
+                    params={
+                        "query": query,
+                        "per_page": limit,
+                        "orientation": "landscape"
+                    },
+                    headers={
+                        "Authorization": f"Client-ID {self.access_key}"
+                    }
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    return [result["urls"]["regular"] for result in data.get("results", [])]
+                
+                return []
+        except Exception as e:
+            print(f"Error fetching images from Unsplash: {e}")
+            return []
+
 unsplash_service = UnsplashService()

@@ -311,7 +311,7 @@ async def finalize_voting(
                 detail="Cannot finalize voting until all participants have voted or skipped"
             )
 
-        results = voting_service.finalize_voting(trip_id)
+        results = await voting_service.finalize_voting(trip_id)
 
         return VotingResult(**results)
 
@@ -573,4 +573,52 @@ async def withdraw_votes(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to withdraw votes"
+        )
+
+
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def reset_user_vote(
+    trip_id: str,
+    user_id: str,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Reset votes for a specific user (Owner only)"""
+    try:
+        # Validate UUID
+        try:
+            uuid.UUID(trip_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Trip not found"
+            )
+
+        # Check access - MUST be owner
+        auth_service = AuthService(db)
+        if not auth_service.check_trip_access(current_user, trip_id, "owner"):
+             raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only trip owner can reset user votes"
+            )
+
+        voting_service = VotingService(db)
+        success = voting_service.reset_user_vote(trip_id, user_id)
+
+        if not success:
+             raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to reset user vote"
+            )
+
+        return
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error resetting user vote: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to reset user vote"
         )

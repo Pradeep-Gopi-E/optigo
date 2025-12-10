@@ -4,75 +4,74 @@
 
 @layer base {
   :root {
-    /* Light Mode (Warm Sand) */
-    --background: 40 20% 98%;
-    /* #fdfbf7 */
-    --foreground: 165 40% 10%;
-    /* Deep Green Text */
+    /* Light Mode (Zinc-50 based) */
+    --background: 0 0% 98%;
+    /* zinc-50 */
+    --foreground: 240 10% 3.9%;
+    /* zinc-950 */
 
-    --card: 40 20% 98%;
-    --card-foreground: 165 40% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
 
-    --popover: 40 20% 98%;
-    --popover-foreground: 165 40% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
 
-    --primary: 16 85% 40%;
-    /* Sunset Clay #c2410c */
-    --primary-foreground: 40 20% 98%;
+    --primary: 240 5.9% 10%;
+    /* zinc-900 */
+    --primary-foreground: 0 0% 98%;
 
-    --secondary: 165 30% 90%;
-    /* Sage Light */
-    --secondary-foreground: 165 40% 10%;
+    --secondary: 240 4.8% 95.9%;
+    /* zinc-100 */
+    --secondary-foreground: 240 5.9% 10%;
 
-    --muted: 40 10% 94%;
-    --muted-foreground: 165 10% 40%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
 
-    --accent: 35 80% 50%;
-    /* Gold/Amber */
-    --accent-foreground: 165 40% 10%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 165 10% 85%;
-    --input: 165 10% 85%;
-    --ring: 16 85% 40%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
 
     --radius: 0.75rem;
   }
 
   .dark {
-    /* Dark Mode (Deep Forest Night) */
-    --background: 168 85% 9%;
-    /* #022c22 */
-    --foreground: 40 20% 90%;
-    /* Sand Text */
+    /* Dark Mode (Zinc-950 based - The "10k Look") */
+    --background: 240 10% 3.9%;
+    /* zinc-950 */
+    --foreground: 0 0% 98%;
+    /* zinc-50 */
 
-    --card: 168 80% 12%;
-    --card-foreground: 40 20% 90%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 168 85% 9%;
-    --popover-foreground: 40 20% 90%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
 
-    --primary: 16 85% 55%;
-    /* Brighter Clay for Dark Mode */
-    --primary-foreground: 40 20% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
 
-    --secondary: 168 40% 20%;
-    --secondary-foreground: 40 20% 90%;
+    --secondary: 240 3.7% 15.9%;
+    /* zinc-800 */
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 168 40% 20%;
-    --muted-foreground: 165 20% 70%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
 
-    --accent: 35 80% 50%;
-    --accent-foreground: 165 40% 10%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
 
-    --destructive: 0 62% 30%;
+    --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 168 40% 20%;
-    --input: 168 40% 20%;
-    --ring: 16 85% 55%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
   }
 }
 
@@ -82,7 +81,7 @@
   }
 
   body {
-    @apply bg-background text-foreground font-body;
+    @apply bg-background text-foreground font-body antialiased selection:bg-zinc-800 selection:text-zinc-100;
   }
 
   h1,
@@ -91,83 +90,56 @@
   h4,
   h5,
   h6 {
-    @apply font-heading font-bold;
+    @apply font-heading font-medium tracking-tight;
   }
 }
 
 @layer components {
-  .btn {
-    @apply inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
+  .glass-panel {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl;
   }
 
-  .btn-primary {
-    @apply btn bg-primary text-primary-foreground hover:bg-primary/90;
+  .glass-panel-light {
+    @apply bg-white/60 backdrop-blur-xl border border-zinc-200/50 shadow-xl;
   }
 
-  .btn-secondary {
-    @apply btn bg-secondary text-secondary-foreground hover:bg-secondary/80;
+  .bento-card {
+    @apply relative overflow-hidden rounded-3xl border border-white/10 bg-zinc-900/50 p-6 backdrop-blur-md transition-all hover:bg-zinc-900/70;
   }
 
-  .btn-outline {
-    @apply btn border border-input bg-background hover:bg-accent hover:text-accent-foreground;
+  .shimmer-border {
+    @apply relative before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:p-[1px] before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent before:animate-shimmer before:bg-[length:200%_100%];
   }
 
-  .btn-ghost {
-    @apply btn hover:bg-accent hover:text-accent-foreground;
-  }
-
-  .btn-sm {
-    @apply h-9 rounded-md px-3;
-  }
-
-  .btn-lg {
-    @apply h-11 rounded-md px-8;
-  }
-
-  .card {
-    @apply rounded-lg border bg-card text-card-foreground shadow-sm;
-  }
-
-  .input {
-    @apply flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
-  }
-
-  .label {
-    @apply text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70;
+  .perspective-1000 {
+    perspective: 1000px;
   }
 }
 
-/* Noise Texture */
-.noise-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 50;
-  opacity: 0.03;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-}
-
-/* Glass Panel */
-.glass-panel {
-  @apply bg-white/5 backdrop-blur-md border border-white/10 shadow-xl;
-}
-
-/* Custom scrollbar */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-secondary;
+  @apply bg-transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-muted-foreground/30 rounded-md;
+  @apply bg-zinc-800 rounded-full;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted-foreground/50;
+  @apply bg-zinc-700;
+}
+
+/* Autofill override */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px #09090b inset !important;
+  -webkit-text-fill-color: #fafafa !important;
+  transition: background-color 5000s ease-in-out 0s;
+  caret-color: white;
 }

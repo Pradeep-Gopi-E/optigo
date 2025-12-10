@@ -23,34 +23,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-hidden font-body">
-      {/* Navigation */}
-      <nav className="fixed w-full z-50 top-0 start-0 border-b border-border/40 bg-background/80 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between px-6 py-4">
-          <Link href="/" className="group">
-            <Logo />
-          </Link>
-          <div className="flex md:order-2 space-x-3 md:space-x-4 rtl:space-x-reverse">
-            {user ? (
-              <Button onClick={() => router.push('/dashboard')} className="font-medium shadow-md">
-                <LayoutDashboard className="w-4 h-4 mr-2" />
-                Dashboard
-              </Button>
-            ) : (
-              <>
-                <Button variant="ghost" onClick={() => router.push('/auth/login')} className="font-medium hover:bg-secondary/50">
-                  <LogIn className="w-4 h-4 mr-2" />
-                  Log in
-                </Button>
-                <Button onClick={() => router.push('/auth/register')} className="font-medium shadow-md">
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Sign up
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </nav>
-
       {/* Hero Section with Background Beams */}
       <BackgroundBeamsWithCollision className="min-h-screen flex flex-col justify-center">
         <div className="relative z-20 container mx-auto px-4 text-center">
@@ -65,7 +37,7 @@ export default function HomePage() {
             </div>
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-heading font-bold mb-8 leading-tight tracking-tight text-foreground drop-shadow-sm">
               Travel Together, <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-accent to-primary animate-gradient-x">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-300 to-white animate-gradient-x">
                 Decide Together.
               </span>
             </h1>
@@ -73,7 +45,7 @@ export default function HomePage() {
               Plan group trips without the chaos. Collaborate on itineraries, vote on destinations, and make memories that last a lifetime.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
+            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center pb-24">
               {user ? (
                 <Button
                   size="lg"

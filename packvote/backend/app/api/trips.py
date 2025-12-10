@@ -10,7 +10,7 @@ from ..schemas.trip import TripCreate, TripUpdate, TripResponse, TripDetailRespo
 from pydantic import BaseModel
 from ..schemas.participant import ParticipantResponse, ParticipantRole, ParticipantStatus
 from ..services.auth import AuthService
-from ..models import Trip, Participant, User
+from ..models import Trip, Participant, User, Vote, Recommendation
 from ..models.trip import TripStatus
 from ..models.participant import ParticipantRole as ParticipantRoleModel, ParticipantStatus as ParticipantStatusModel
 from ..utils.database import get_db
@@ -19,6 +19,30 @@ from ..api.auth import get_current_user
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/trips", tags=["trips"])
+
+# DEBUG ENDPOINT
+@router.get("/{trip_id}/debug_itinerary")
+def debug_itinerary(trip_id: str, db: Session = Depends(get_db)):
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    if not trip:
+        return {"error": "Trip not found"}
+    
+    recs = db.query(Recommendation).filter(Recommendation.trip_id == trip_id).all()
+    rec_data = []
+    for r in recs:
+        rec_data.append({
+            "id": str(r.id),
+            "destination": r.destination_name,
+            "meta_keys": list(r.meta.keys()) if r.meta else None,
+            "itinerary_in_meta": r.meta.get("itinerary") if r.meta else None
+        })
+        
+    return {
+        "trip_id": str(trip.id),
+        "trip_status": trip.status,
+        "trip_itinerary": trip.itinerary,
+        "recommendations": rec_data
+    }
 
 
 @router.get("/", response_model=List[TripResponse])
@@ -167,7 +191,8 @@ async def get_trip(
                 invited_at=participant.invited_at,
                 joined_at=participant.joined_at,
                 user_name=user.name,
-                user_email=user.email
+                user_email=user.email,
+                vote_status=participant.vote_status
             )
             participant_responses.append(participant_response)
 
@@ -188,7 +213,8 @@ async def get_trip(
             created_at=trip.created_at,
             updated_at=trip.updated_at,
             participants=participant_responses,
-            image_url=trip.image_url
+            image_url=trip.image_url,
+            itinerary=trip.itinerary
         )
 
         return trip_detail
@@ -346,7 +372,8 @@ async def get_trip_participants(
                 invited_at=participant.invited_at,
                 joined_at=participant.joined_at,
                 user_name=user.name,
-                user_email=user.email
+                user_email=user.email,
+                vote_status=participant.vote_status
             )
             participant_responses.append(participant_response)
 

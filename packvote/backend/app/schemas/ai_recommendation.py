@@ -1,5 +1,10 @@
 from pydantic import BaseModel, Field, model_validator
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
+
+class CostDetail(BaseModel):
+    amount: int
+    currency: str
+    display_string: str
 
 class AIRecommendation(BaseModel):
     destination: str = Field(..., description="City, Country")
@@ -14,7 +19,7 @@ class AIRecommendation(BaseModel):
     match_reason: str = Field(..., description="Why this matches the group's preferences")
     continent: str = Field(..., description="Continent of the destination")
     experience_type: str = Field(..., description="Type of experience (beach, mountain, city, etc.)")
-    cost_breakdown: Dict[str, str] = Field(..., description="Estimated cost per person for each participant location")
+    cost_breakdown: Dict[str, Union[str, CostDetail]] = Field(..., description="Estimated cost per person for each participant location")
     itinerary: List[Dict[str, Any]] = Field(default_factory=list, description="Day-by-day itinerary")
     dining_recommendations: List[Dict[str, Any]] = Field(default_factory=list, description="Dining recommendations")
 

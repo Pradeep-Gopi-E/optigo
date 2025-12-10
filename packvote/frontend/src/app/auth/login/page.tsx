@@ -5,11 +5,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Users } from 'lucide-react'
+import { Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { authAPI } from '@/lib/api'
 import { LoginData } from '@/types/auth'
 import toast from 'react-hot-toast'
-import { Logo } from '@/components/ui/logo'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -26,11 +25,8 @@ export default function LoginPage() {
     setIsLoading(true)
     try {
       const response = await authAPI.login({ email: data.email, password: data.password })
-
-      // Store auth data
       localStorage.setItem('access_token', response.access_token)
       localStorage.setItem('user', JSON.stringify(response.user))
-
       toast.success(`Welcome back, ${response.user.name}!`)
       router.push('/dashboard')
     } catch (error: any) {
@@ -44,146 +40,97 @@ export default function LoginPage() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="w-full max-w-md"
+      transition={{ duration: 0.6 }}
     >
-      {/* Logo and Header */}
-      <div className="text-center mb-8">
-        <div className="flex justify-center items-center mb-4">
-          <Logo />
-        </div>
-        <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>
-        <p className="text-gray-600 mt-2">Sign in to continue planning your trips</p>
+      <div className="mb-12">
+        <h1 className="text-5xl font-heading text-zinc-100 mb-4 tracking-tight">Welcome back</h1>
+        <p className="text-zinc-500 font-body font-light text-lg">Enter your details to access your account.</p>
       </div>
 
-      {/* Login Form */}
-      <div className="bg-white rounded-2xl shadow-xl p-8">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Email Field */}
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Email address
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Mail className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                {...register('email', {
-                  required: 'Email is required',
-                  pattern: {
-                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                    message: 'Invalid email address',
-                  },
-                })}
-                type="email"
-                id="email"
-                className="input pl-10 w-full"
-                placeholder="you@example.com"
-              />
-            </div>
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-            )}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        {/* Email Field */}
+        <div className="space-y-2">
+          <label htmlFor="email" className="text-xs font-medium text-zinc-500 uppercase tracking-widest font-body">
+            Email address
+          </label>
+          <input
+            {...register('email', {
+              required: 'Email is required',
+              pattern: {
+                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                message: 'Invalid email address',
+              },
+            })}
+            type="email"
+            id="email"
+            className="w-full bg-transparent border-b border-zinc-800 py-3 text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-zinc-100 transition-colors font-body font-light text-lg"
+            placeholder="name@example.com"
+          />
+          {errors.email && (
+            <p className="mt-1 text-xs text-red-400 font-body">{errors.email.message}</p>
+          )}
+        </div>
+
+        {/* Password Field */}
+        <div className="space-y-2">
+          <label htmlFor="password" className="text-xs font-medium text-zinc-500 uppercase tracking-widest font-body">
+            Password
+          </label>
+          <div className="relative">
+            <input
+              {...register('password', {
+                required: 'Password is required',
+                minLength: {
+                  value: 6,
+                  message: 'Password must be at least 6 characters',
+                },
+              })}
+              type={showPassword ? 'text' : 'password'}
+              id="password"
+              className="w-full bg-transparent border-b border-zinc-800 py-3 text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-zinc-100 transition-colors font-body font-light text-lg pr-10"
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              className="absolute right-0 top-3 text-zinc-600 hover:text-zinc-400 transition-colors"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" strokeWidth={1.5} /> : <Eye className="w-5 h-5" strokeWidth={1.5} />}
+            </button>
           </div>
+          {errors.password && (
+            <p className="mt-1 text-xs text-red-400 font-body">{errors.password.message}</p>
+          )}
+        </div>
 
-          {/* Password Field */}
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-              Password
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Lock className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                {...register('password', {
-                  required: 'Password is required',
-                  minLength: {
-                    value: 6,
-                    message: 'Password must be at least 6 characters',
-                  },
-                })}
-                type={showPassword ? 'text' : 'password'}
-                id="password"
-                className="input pl-10 pr-10 w-full"
-                placeholder="••••••••"
-              />
-              <button
-                type="button"
-                className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-5 w-5 text-gray-400" />
-                ) : (
-                  <Eye className="h-5 w-5 text-gray-400" />
-                )}
-              </button>
-            </div>
-            {errors.password && (
-              <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
-            )}
-          </div>
+        {/* Submit Button */}
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full py-4 bg-zinc-100 text-zinc-950 rounded-full font-body font-medium hover:bg-white transition-all hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2 mt-8 shadow-lg shadow-zinc-900/20"
+        >
+          {isLoading ? (
+            <span className="text-sm">Signing in...</span>
+          ) : (
+            <>
+              <span className="text-sm tracking-wide">Sign In</span>
+              <ArrowRight className="w-4 h-4" />
+            </>
+          )}
+        </button>
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="btn btn-primary w-full btn-lg flex items-center justify-center disabled:opacity-50"
-          >
-            {isLoading ? (
-              <span className="inline-flex items-center">
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Signing in...
-              </span>
-            ) : (
-              <span className="flex items-center">
-                Sign in
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </span>
-            )}
-          </button>
-        </form>
-
-        {/* Sign Up Link */}
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600">
+        <div className="text-center mt-8">
+          <p className="text-sm text-zinc-500 font-body font-light">
             Don't have an account?{' '}
             <Link
               href="/auth/register"
-              className="font-medium text-primary hover:text-primary/600 transition-colors"
+              className="text-zinc-300 hover:text-white transition-colors border-b border-zinc-800 hover:border-white pb-0.5"
             >
               Sign up for free
             </Link>
           </p>
         </div>
-      </div>
-
-      {/* Features */}
-      <div className="mt-8 grid grid-cols-3 gap-4">
-        <div className="text-center">
-          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-            <Users className="w-6 h-6 text-blue-600" />
-          </div>
-          <p className="text-xs text-gray-600">Group Planning</p>
-        </div>
-        <div className="text-center">
-          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-            <Lock className="w-6 h-6 text-green-600" />
-          </div>
-          <p className="text-xs text-gray-600">Fair Voting</p>
-        </div>
-        <div className="text-center">
-          <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
-            <ArrowRight className="w-6 h-6 text-purple-600" />
-          </div>
-          <p className="text-xs text-gray-600">AI Powered</p>
-        </div>
-      </div>
+      </form>
     </motion.div>
   )
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
     ArrowLeft,
     Users,
@@ -12,33 +12,51 @@ import {
     Settings,
     Vote,
     DollarSign,
-    Brain,
-    Star,
-    Plus,
-    Trash2,
-    Loader2,
     Sparkles,
-    Copy,
-    CheckCircle2,
     ArrowRight,
-    Pencil,
     Globe,
-    Compass
+    CheckCircle2,
+    Plus,
+    Loader2,
+    MoreVertical,
+    Edit,
+    Trash2,
+    Crown,
+    Shield,
+    User as UserIcon
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { Input } from '@/components/ui/input'
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import toast from 'react-hot-toast'
 import Link from 'next/link'
-import { tripsAPI, recommendationsAPI, preferencesAPI, TripDetail, Recommendation, Preference } from '@/lib/api'
+import { tripsAPI, recommendationsAPI, preferencesAPI, votesAPI, TripDetail, Recommendation, Preference, Participant } from '@/lib/api'
 import { cn, formatCurrency as formatCurrencyUtil, generateInitials, formatDate, getCurrencyFromLocale, convertCurrency } from '@/lib/utils'
-import ShareTripModal from '@/components/trips/ShareTripModal'
+import { generateMockCostBreakdown } from '@/lib/voting-utils'
+import { VotingResults } from '@/components/trips/VotingResults'
+import { ItineraryView } from '@/components/trips/ItineraryView'
+import { RankingList } from '@/components/trips/RankingList'
+import { VotingFlow } from '@/components/trips/VotingFlow'
+import PreferencesModal from '@/components/trips/PreferencesModal'
+import EditTripModal from '@/components/trips/EditTripModal'
+import GenerateRecommendationsModal from '@/components/trips/GenerateRecommendationsModal'
 import CustomRecommendationModal from '@/components/trips/CustomRecommendationModal'
-import EditRecommendationModal from '@/components/trips/EditRecommendationModal'
-import RecommendationDetailsModal from '@/components/trips/RecommendationDetailsModal'
+import TripDetailSheet from '@/components/trips/TripDetailSheet'
 
 export default function TripDetailPage() {
     const params = useParams()
@@ -48,17 +66,26 @@ export default function TripDetailPage() {
     const [trip, setTrip] = useState<TripDetail | null>(null)
     const [recommendations, setRecommendations] = useState<Recommendation[]>([])
     const [preferences, setPreferences] = useState<Preference | null>(null)
-    const [activeTab, setActiveTab] = useState<'overview' | 'participants' | 'preferences' | 'recommendations' | 'voting'>('overview')
-    const [isShareModalOpen, setIsShareModalOpen] = useState(false)
-    const [isCustomRecModalOpen, setIsCustomRecModalOpen] = useState(false)
-    const [isEditRecModalOpen, setIsEditRecModalOpen] = useState(false)
-    const [selectedRec, setSelectedRec] = useState<Recommendation | null>(null)
-    const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
-    const [viewingRec, setViewingRec] = useState<Recommendation | null>(null)
+    const [activeTab, setActiveTab] = useState<'overview' | 'itinerary' | 'voting' | 'settings' | 'preferences'>('overview')
     const [isLoading, setIsLoading] = useState(true)
-    const [isGeneratingRecs, setIsGeneratingRecs] = useState(false)
     const [user, setUser] = useState<any>(null)
     const [currency, setCurrency] = useState('USD')
+
+    // Voting State
+    const [shortlistedRecs, setShortlistedRecs] = useState<Recommendation[]>([])
+    const [isVotingComplete, setIsVotingComplete] = useState(false)
+    const [userCostBreakdown, setUserCostBreakdown] = useState<Record<string, Record<string, number>>>({})
+
+    // Post-Voting State
+    const [showReveal, setShowReveal] = useState(false)
+
+    // Modals State
+    const [isPreferencesModalOpen, setIsPreferencesModalOpen] = useState(false)
+    const [isEditTripModalOpen, setIsEditTripModalOpen] = useState(false)
+    const [isGenerateRecsModalOpen, setIsGenerateRecsModalOpen] = useState(false)
+    const [isCustomRecModalOpen, setIsCustomRecModalOpen] = useState(false)
+    const [isTripDetailSheetOpen, setIsTripDetailSheetOpen] = useState(false)
+    const [selectedRecommendation, setSelectedRecommendation] = useState<Recommendation | null>(null)
 
     useEffect(() => {
         const userData = localStorage.getItem('user')
@@ -69,17 +96,37 @@ export default function TripDetailPage() {
         if (tripId) {
             fetchTripDetails()
             fetchRecommendations()
-
+            fetchPreferences()
         }
 
         setCurrency(getCurrencyFromLocale())
     }, [tripId])
 
     useEffect(() => {
-        if (trip) {
-            fetchPreferences()
+        if (recommendations.length > 0 && trip?.participants) {
+            const userIds = trip.participants.map(p => p.user_id)
+            const breakdown = generateMockCostBreakdown(recommendations, userIds)
+            setUserCostBreakdown(breakdown)
         }
-    }, [trip])
+    }, [recommendations, trip])
+
+    // Check for reveal status
+    useEffect(() => {
+        if (trip?.status === 'confirmed') {
+            const hasSeen = localStorage.getItem(`hasSeenReveal_${trip.id}`)
+            if (!hasSeen) {
+                setShowReveal(true)
+            }
+        }
+    }, [trip?.status, trip?.id])
+
+    const handleViewItinerary = () => {
+        setShowReveal(false)
+        setActiveTab('itinerary')
+        if (trip?.id) {
+            localStorage.setItem(`hasSeenReveal_${trip.id}`, 'true')
+        }
+    }
 
     const fetchTripDetails = async () => {
         try {
@@ -106,791 +153,486 @@ export default function TripDetailPage() {
         }
     }
 
-    const formatTag = (tag: string) => {
-        return tag.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
-    }
-
     const fetchPreferences = async () => {
         try {
             const response = await preferencesAPI.getPreferences(tripId)
-            const userData = localStorage.getItem('user')
-            const currentUser = userData ? JSON.parse(userData) : null
-
-            let displayPref = null
-
-            // 1. Try to find current user's preference
-            if (false) {
-                const userPref = response.find(p => p.user_id === currentUser.id && p.preference_type === 'detailed')
-                if (userPref) {
-                    displayPref = userPref
-                    if (userPref.preference_data?.currency) {
-                        setCurrency(userPref.preference_data.currency)
-                    }
-                }
+            if (response.length > 0) {
+                setPreferences(response[0])
             }
-
-            // 2. If no user preference, fallback to creator's preference
-            if (!displayPref && trip) {
-                // Ensure we compare strings to avoid UUID object vs string issues
-                const creatorPref = response.find(p => String(p.user_id) === String(trip.created_by) && p.preference_type === 'detailed')
-                console.log('Creator Pref Found:', creatorPref)
-                if (creatorPref) {
-                    displayPref = creatorPref
-                    // Only set currency if we haven't set it yet (though logic above implies we haven't)
-                    if (creatorPref.preference_data?.currency && !displayPref) {
-                        setCurrency(creatorPref.preference_data.currency)
-                    }
-                }
-            }
-
-            setPreferences(displayPref)
-
         } catch (error) {
             console.error('Failed to fetch preferences:', error)
         }
     }
 
-    const generateRecommendations = async (clearExisting: boolean = true) => {
-        setIsGeneratingRecs(true)
-        try {
-            const response = await recommendationsAPI.generateRecommendations(tripId, clearExisting)
-            toast.success(response.message)
-            fetchRecommendations()
-        } catch (error: any) {
-            toast.error(error.response?.data?.detail || 'Failed to generate recommendations')
-        } finally {
-            setIsGeneratingRecs(false)
-        }
-    }
-
-    const handleToggleMemberRecommendations = async (checked: boolean) => {
-        if (!trip) return
-        try {
-            const updatedTrip = await tripsAPI.updateTrip(tripId, { allow_member_recommendations: checked })
-            setTrip({ ...trip, allow_member_recommendations: updatedTrip.allow_member_recommendations })
-            toast.success(checked ? 'Member suggestions allowed' : 'Member suggestions disabled')
-        } catch (error) {
-            toast.error('Failed to update settings')
-        }
-    }
-
-    const handleToggleMemberEdits = async (checked: boolean) => {
-        if (!trip) return
-        try {
-            const updatedTrip = await tripsAPI.updateTrip(tripId, { allow_member_edits: checked })
-            setTrip({ ...trip, allow_member_edits: updatedTrip.allow_member_edits })
-            toast.success(checked ? 'Member editing allowed' : 'Member editing disabled')
-        } catch (error) {
-            toast.error('Failed to update settings')
-        }
-    }
-
-    const handleUpdateRole = async (participantId: string, newRole: 'admin' | 'member') => {
+    const handleRoleChange = async (participantId: string, newRole: string) => {
         try {
             await tripsAPI.updateParticipantRole(tripId, participantId, newRole)
-            toast.success(`Participant role updated to ${newRole}`)
-            fetchTripDetails()
+            toast.success('Role updated')
+            fetchTripDetails() // Refresh list
         } catch (error) {
             toast.error('Failed to update role')
         }
     }
 
-    const handleEditRecommendation = (rec: Recommendation) => {
-        setSelectedRec(rec)
-        setIsEditRecModalOpen(true)
-    }
-
-    const handleDeleteRecommendation = async (recId: string) => {
-        if (!confirm('Are you sure you want to delete this recommendation?')) return
+    const handleDeleteTrip = async () => {
         try {
-            await recommendationsAPI.deleteRecommendation(tripId, recId)
-            toast.success('Recommendation deleted')
-            fetchRecommendations()
+            await tripsAPI.deleteTrip(tripId)
+            toast.success('Trip deleted')
+            router.push('/dashboard')
         } catch (error) {
-            toast.error('Failed to delete recommendation')
+            toast.error('Failed to delete trip')
         }
     }
 
-    const handleViewRecommendation = (rec: Recommendation) => {
-        setViewingRec(rec)
-        setIsDetailsModalOpen(true)
+    const handleResetVoting = async () => {
+        try {
+            await votesAPI.resetVotes(tripId)
+            toast.success('Voting reset successfully')
+
+            // Optimistically update trip status to 'voting'
+            setTrip(prev => {
+                if (!prev) return prev
+                return {
+                    ...prev,
+                    status: 'voting'
+                }
+            })
+
+            fetchTripDetails()
+        } catch (error) {
+            toast.error('Failed to reset voting')
+        }
     }
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-        })
+    const handleResetUserVote = async (userId: string) => {
+        try {
+            await votesAPI.resetUserVote(tripId, userId)
+            toast.success('User vote reset')
+
+            // Optimistically update trip status to 'voting' if it was confirmed
+            setTrip(prev => {
+                if (!prev) return prev
+                return {
+                    ...prev,
+                    status: 'voting'
+                }
+            })
+
+            fetchTripDetails()
+        } catch (error) {
+            toast.error('Failed to reset user vote')
+        }
     }
 
-    const formatCurrency = (amount: number | null | undefined) => {
-        return formatCurrencyUtil(amount, currency)
+    const handleVoteSubmit = async (votes: { recommendation_id: string; rank: number }[]) => {
+        try {
+            await votesAPI.castVotes(tripId, { votes })
+            toast.success('Votes submitted successfully')
+            fetchTripDetails()
+        } catch (error) {
+            toast.error('Failed to submit votes')
+        }
     }
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'planning': return 'bg-blue-100 text-blue-800'
-            case 'voting': return 'bg-purple-100 text-purple-800'
-            case 'confirmed': return 'bg-green-100 text-green-800'
-            case 'cancelled': return 'bg-red-100 text-red-800'
-            default: return 'bg-gray-100 text-gray-800'
+    const handleForceComplete = async () => {
+        try {
+            await votesAPI.finalizeVoting(tripId)
+
+            // 1. Optimistic Update (Don't wait for fetch)
+            setTrip(prev => prev ? ({ ...prev, status: 'confirmed' }) : null)
+
+            // 2. CRITICAL: Move user to the "Stage" (Overview Tab)
+            setActiveTab('overview')
+
+            // 3. Trigger the Curtain Raise
+            setShowReveal(true)
+
+            // 4. Background refresh (Just to be safe)
+            fetchTripDetails()
+
+            toast.success("Voting finalized!")
+        } catch (error) {
+            console.error("Failed to force complete:", error)
+            toast.error("Failed to finalize voting")
         }
     }
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <div className="min-h-screen flex items-center justify-center bg-[#09090b]">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="h-px w-24 bg-zinc-800 overflow-hidden">
+                        <div className="h-full w-1/2 bg-zinc-200 animate-shimmer-line" />
+                    </div>
+                    <p className="text-zinc-500 font-body tracking-widest text-xs uppercase">Loading Experience</p>
+                </div>
             </div>
         )
     }
 
     if (!trip) return null
 
-    const tabs = ['overview', 'participants', 'preferences', 'recommendations', 'voting']
     const isOwner = trip.created_by === user?.id
-    const currentUserParticipant = trip.participants.find(p => p.user_id === user?.id)
-    const userRole = isOwner ? 'owner' : currentUserParticipant?.role
-    const canAddRecommendation = isOwner || trip.allow_member_recommendations
+    const isImmersive = showReveal && trip?.status === 'confirmed' && activeTab === 'overview'
 
     return (
-        <div className="min-h-screen bg-background pb-12 relative">
-            <div className="noise-overlay" />
-
-            {/* Hero Section */}
-            <div className="relative h-[40vh] min-h-[400px] w-full bg-gray-900 overflow-hidden">
-                <img
-                    src={trip.image_url || (trip.destination ? `https://source.unsplash.com/1600x900/?${trip.destination},travel` : "https://source.unsplash.com/1600x900/?travel,vacation")}
-                    alt={trip.title}
-                    className="w-full h-full object-cover opacity-70 scale-105 animate-fade-in-up"
-                    style={{ animationDuration: '1.5s' }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
-
-                <div className="absolute bottom-0 left-0 right-0 p-8 z-20 container mx-auto max-w-7xl">
-                    <div className="flex flex-col md:flex-row justify-between items-end gap-6">
-                        <div className="animate-fade-in-up">
-                            <Badge className="mb-4 bg-primary/90 backdrop-blur-md text-white border-none px-3 py-1 text-sm font-medium tracking-wide uppercase">
-                                {trip.status} Phase
-                            </Badge>
-                            <h1 className="text-5xl md:text-7xl font-heading font-bold mb-4 text-foreground drop-shadow-sm leading-tight">{trip.title}</h1>
-                            <div className="flex flex-wrap items-center gap-6 text-foreground/90 font-medium">
-                                {trip.destination && (
-                                    <div className="flex items-center gap-2 bg-background/30 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
-                                        <MapPin className="h-4 w-4" />
-                                        {trip.destination}
-                                    </div>
-                                )}
-                                {trip.start_date && (
-                                    <div className="flex items-center gap-2 bg-background/30 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
-                                        <Calendar className="h-4 w-4" />
-                                        {formatDate(trip.start_date)} - {trip.end_date ? formatDate(trip.end_date) : 'TBD'}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                        <div className="flex gap-3 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-                            <div className="flex items-center gap-2 bg-background/40 backdrop-blur-md rounded-lg px-3 py-2 border border-white/10 shadow-lg">
-                                <Globe className="h-4 w-4 text-foreground/70" />
-                                <select
-                                    value={currency}
-                                    onChange={(e) => setCurrency(e.target.value)}
-                                    className="bg-transparent text-foreground text-sm font-medium focus:outline-none cursor-pointer border-none outline-none appearance-none pr-2"
-                                >
-                                    <option value="USD">USD ($)</option>
-                                    <option value="EUR">EUR (€)</option>
-                                    <option value="GBP">GBP (£)</option>
-                                    <option value="JPY">JPY (¥)</option>
-                                    <option value="AUD">AUD (A$)</option>
-                                    <option value="CAD">CAD (C$)</option>
-                                    <option value="INR">INR (₹)</option>
-                                </select>
-                            </div>
-                            <Button
-                                variant="secondary"
-                                className="gap-2 shadow-lg hover:shadow-xl transition-all"
-                                onClick={() => setIsShareModalOpen(true)}
-                            >
-                                <Share2 className="h-4 w-4" />
-                                Share
-                            </Button>
-                            {isOwner && (
-                                <Button
-                                    variant="secondary"
-                                    className="gap-2 shadow-lg hover:shadow-xl transition-all"
-                                    onClick={() => router.push(`/trips/${tripId}/settings`)}
-                                >
-                                    <Settings className="h-4 w-4" />
-                                    Settings
-                                </Button>
-                            )}
-                            {false && (
-                                <Button onClick={() => router.push(`/trips/${tripId}/preferences`)} className="shadow-lg">
-                                    Edit Preferences
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-                <Link href="/dashboard" className="absolute top-6 left-6 z-30 p-3 bg-background/20 hover:bg-background/40 backdrop-blur-md rounded-full text-foreground transition-all border border-white/10 group">
-                    <ArrowLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />
-                </Link>
-            </div>
-
-            {/* Trip Content */}
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
-                <div className="flex space-x-2 p-1 mb-10 overflow-x-auto border-b border-border/50 pb-1">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab as any)}
-                            className={cn(
-                                'relative px-6 py-3 text-sm font-medium transition-all duration-200 whitespace-nowrap',
-                                activeTab === tab
-                                    ? 'text-primary font-bold'
-                                    : 'text-muted-foreground hover:text-foreground'
-                            )}
-                        >
-                            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                            {activeTab === tab && (
-                                <motion.div
-                                    layoutId="activeTab"
-                                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
-                                />
-                            )}
-                        </button>
-                    ))}
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-2 space-y-8">
-                        {activeTab === 'overview' && (
-                            <div className="space-y-8 animate-fade-in-up">
-                                <Card className="border-border/50 shadow-lg">
-                                    <CardHeader>
-                                        <CardTitle className="font-heading text-2xl">Trip Details</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="space-y-6">
-                                        <div>
-                                            <h3 className="font-semibold mb-2 text-foreground/80">Description</h3>
-                                            <p className="text-muted-foreground leading-relaxed">{trip.description || 'No description provided.'}</p>
-                                        </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div className="bg-secondary/20 p-4 rounded-lg border border-border/50">
-                                                <h3 className="font-semibold mb-1 text-foreground/80 flex items-center gap-2">
-                                                    <DollarSign className="w-4 h-4 text-primary" /> Budget Range
-                                                </h3>
-                                                <p className="text-lg font-medium text-foreground">
-                                                    {formatCurrency(trip.budget_min)} - {formatCurrency(trip.budget_max)}
-                                                </p>
-                                            </div>
-                                            <div className="bg-secondary/20 p-4 rounded-lg border border-border/50">
-                                                <h3 className="font-semibold mb-1 text-foreground/80 flex items-center gap-2">
-                                                    <Users className="w-4 h-4 text-primary" /> Participants
-                                                </h3>
-                                                <p className="text-lg font-medium text-foreground">{trip.expected_participants || 'Not specified'}</p>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        )}
-
-                        {activeTab === 'participants' && (
-                            <Card className="border-border/50 shadow-lg animate-fade-in-up">
-                                <CardHeader>
-                                    <CardTitle className="font-heading text-2xl">Participants ({trip.participants?.length || 0})</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        {trip.participants?.map((participant) => (
-                                            <div key={participant.id} className="flex items-center justify-between p-4 bg-secondary/10 rounded-xl border border-border/50 hover:border-primary/30 transition-colors">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold shadow-md">
-                                                        {generateInitials(participant.user_name)}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-medium text-lg text-foreground">{participant.user_name}</p>
-                                                        <p className="text-sm text-muted-foreground capitalize">{participant.role}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    <Badge variant={participant.status === 'joined' ? 'default' : 'secondary'} className="capitalize">
-                                                        {participant.status}
-                                                    </Badge>
-                                                    {isOwner && participant.user_id !== user?.id && (
-                                                        <div className="flex gap-2">
-                                                            {participant.role === 'admin' ? (
-                                                                <Button variant="outline" size="sm" onClick={() => handleUpdateRole(participant.id, 'member')}>
-                                                                    Demote
-                                                                </Button>
-                                                            ) : (
-                                                                <Button variant="outline" size="sm" onClick={() => handleUpdateRole(participant.id, 'admin')}>
-                                                                    Promote
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {activeTab === 'preferences' && (
-                            <div className="space-y-8 animate-fade-in-up">
-                                <Card className="border-border/50 shadow-lg">
-                                    <CardHeader className="flex flex-row items-center justify-between">
-                                        <div>
-                                            <CardTitle className="font-heading text-2xl">Group Preferences</CardTitle>
-                                            <CardDescription>
-                                                Preferences used to generate AI recommendations.
-                                            </CardDescription>
-                                        </div>
-                                        {isOwner && (
-                                            <Button onClick={() => router.push(`/trips/${tripId}/preferences`)} variant="outline" size="sm">
-                                                <Settings className="h-4 w-4 mr-2" />
-                                                Edit Preferences
-                                            </Button>
-                                        )}
-                                    </CardHeader>
-                                    <CardContent>
-                                        {preferences ? (
-                                            <div className="space-y-8">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                    {/* Vibe Card */}
-                                                    <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100 shadow-sm hover:shadow-md transition-shadow">
-                                                        <div className="flex items-center gap-3 mb-4">
-                                                            <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
-                                                                <Sparkles className="w-5 h-5" />
-                                                            </div>
-                                                            <h3 className="font-heading font-semibold text-lg text-gray-900">Vibe & Atmosphere</h3>
-                                                        </div>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {preferences.preference_data?.vibe?.map((v: string) => (
-                                                                <Badge
-                                                                    key={v}
-                                                                    variant="secondary"
-                                                                    className="bg-white/80 backdrop-blur-sm border border-purple-100 text-purple-700 px-3 py-1 text-sm font-medium shadow-sm"
-                                                                >
-                                                                    {formatTag(v)}
-                                                                </Badge>
-                                                            )) || <span className="text-muted-foreground italic">Not specified</span>}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Activities Card */}
-                                                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-2xl border border-blue-100 shadow-sm hover:shadow-md transition-shadow">
-                                                        <div className="flex items-center gap-3 mb-4">
-                                                            <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
-                                                                <Compass className="w-5 h-5" />
-                                                            </div>
-                                                            <h3 className="font-heading font-semibold text-lg text-gray-900">Must-Do Activities</h3>
-                                                        </div>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {preferences.preference_data?.must_have_activities?.map((a: string) => (
-                                                                <Badge
-                                                                    key={a}
-                                                                    variant="outline"
-                                                                    className="bg-white/80 border-blue-200 text-blue-700 px-3 py-1 text-sm font-medium shadow-sm"
-                                                                >
-                                                                    {formatTag(a)}
-                                                                </Badge>
-                                                            )) || <span className="text-muted-foreground italic">Not specified</span>}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Budget Card */}
-                                                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-2xl border border-green-100 shadow-sm hover:shadow-md transition-shadow">
-                                                        <div className="flex items-center gap-3 mb-4">
-                                                            <div className="p-2 bg-green-100 rounded-lg text-green-600">
-                                                                <DollarSign className="w-5 h-5" />
-                                                            </div>
-                                                            <h3 className="font-heading font-semibold text-lg text-gray-900">Budget Level</h3>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-2xl font-bold text-green-800 capitalize">
-                                                                {preferences.preference_data?.budget_sensitivity?.replace('_', ' ') || 'Not specified'}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Duration Card */}
-                                                    <div className="bg-gradient-to-br from-orange-50 to-amber-50 p-6 rounded-2xl border border-orange-100 shadow-sm hover:shadow-md transition-shadow">
-                                                        <div className="flex items-center gap-3 mb-4">
-                                                            <div className="p-2 bg-orange-100 rounded-lg text-orange-600">
-                                                                <Calendar className="w-5 h-5" />
-                                                            </div>
-                                                            <h3 className="font-heading font-semibold text-lg text-gray-900">Duration</h3>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-2xl font-bold text-orange-800">
-                                                                {preferences.preference_data?.duration_days || 0}
-                                                            </span>
-                                                            <span className="text-orange-600 font-medium">days</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {isOwner && (
-                                                    <div className="pt-6 border-t border-border/50">
-                                                        <div className="bg-primary/5 p-6 rounded-xl border border-primary/20 flex items-center justify-between">
-                                                            <div>
-                                                                <h4 className="font-semibold text-primary mb-1">Want new recommendations?</h4>
-                                                                <p className="text-sm text-muted-foreground">Regenerating will replace existing AI recommendations.</p>
-                                                            </div>
-                                                            <Button onClick={() => generateRecommendations(true)} disabled={isGeneratingRecs} size="sm" className="shadow-md">
-                                                                {isGeneratingRecs ? (
-                                                                    <>
-                                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                                        Generating...
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <Sparkles className="mr-2 h-4 w-4" />
-                                                                        Regenerate
-                                                                    </>
-                                                                )}
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <div className="text-center py-12 bg-secondary/10 rounded-xl border border-dashed border-border">
-                                                <p className="text-muted-foreground mb-4">No preferences set yet.</p>
-                                                {isOwner && (
-                                                    <Button onClick={() => router.push(`/trips/${tripId}/preferences`)}>
-                                                        Set Preferences
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        )}
-
-                        {activeTab === 'recommendations' && (
-                            <div className="space-y-8 animate-fade-in-up">
-                                <div className="flex justify-between items-center">
-                                    <h2 className="text-3xl font-heading font-bold text-foreground">Recommendations</h2>
-                                    <div className="flex gap-3">
-                                        {canAddRecommendation && (
-                                            <Button onClick={() => setIsCustomRecModalOpen(true)} variant="outline" className="gap-2 bg-background/50 backdrop-blur-sm">
-                                                <Plus className="h-4 w-4" />
-                                                Add Custom
-                                            </Button>
-                                        )}
-                                        {(isOwner || recommendations.length === 0) && (
-                                            <Button onClick={() => generateRecommendations(true)} disabled={isGeneratingRecs} className="shadow-lg">
-                                                {isGeneratingRecs ? (
-                                                    <>
-                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                        Generating...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Sparkles className="mr-2 h-4 w-4" />
-                                                        Generate with AI
-                                                    </>
-                                                )}
-                                            </Button>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {recommendations.length === 0 ? (
-                                    <Card className="border-dashed border-2 border-border/60 bg-transparent shadow-none">
-                                        <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                                            <div className="w-20 h-20 bg-secondary/20 rounded-full flex items-center justify-center mb-6">
-                                                <Sparkles className="h-10 w-10 text-primary/50" />
-                                            </div>
-                                            <h3 className="text-xl font-heading font-semibold mb-2 text-foreground">No recommendations yet</h3>
-                                            <p className="text-muted-foreground mb-8 max-w-md">
-                                                Generate AI recommendations based on group preferences or add your own custom suggestions.
-                                            </p>
-                                            <div className="flex gap-4">
-                                                <Button onClick={() => generateRecommendations(true)} disabled={isGeneratingRecs} size="lg">
-                                                    Generate with AI
-                                                </Button>
-                                                {canAddRecommendation && (
-                                                    <Button variant="outline" onClick={() => setIsCustomRecModalOpen(true)} size="lg">
-                                                        Add Custom
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ) : (
-                                    <div className="grid gap-8">
-                                        {recommendations.map((rec) => (
-                                            <Card
-                                                key={rec.id}
-                                                className="overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group border-border/50 bg-card/90 backdrop-blur-sm"
-                                                onClick={() => handleViewRecommendation(rec)}
-                                            >
-                                                <div className="md:flex">
-                                                    <div className="md:w-2/5 h-64 md:h-auto relative overflow-hidden">
-                                                        <img
-                                                            src={rec.image_url || `https://source.unsplash.com/800x600/?${rec.destination_name},travel`}
-                                                            alt={rec.destination_name}
-                                                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                                                        />
-                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent md:bg-gradient-to-r" />
-                                                        {rec.ai_generated && (
-                                                            <Badge className="absolute top-4 left-4 bg-primary/90 backdrop-blur-md border-none shadow-lg">
-                                                                <Sparkles className="w-3 h-3 mr-1" /> AI Pick
-                                                            </Badge>
-                                                        )}
-                                                    </div>
-                                                    <div className="p-8 md:w-3/5 flex flex-col justify-between">
-                                                        <div>
-                                                            <div className="flex justify-between items-start mb-4">
-                                                                <h3 className="text-2xl font-heading font-bold group-hover:text-primary transition-colors text-foreground">{rec.destination_name}</h3>
-                                                                <div className="flex items-center gap-3">
-                                                                    {rec.estimated_cost && (
-                                                                        <Badge variant="secondary" className="text-green-700 bg-green-50/80 backdrop-blur-sm border border-green-100">
-                                                                            {formatCurrency(convertCurrency(rec.estimated_cost, rec.meta?.currency || 'USD', currency))}
-                                                                        </Badge>
-                                                                    )}
-                                                                    {(isOwner || userRole === 'admin' || rec.created_by === user?.id) && (
-                                                                        <>
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation()
-                                                                                    handleEditRecommendation(rec)
-                                                                                }}
-                                                                            >
-                                                                                <Pencil className="h-4 w-4 text-muted-foreground" />
-                                                                            </Button>
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-500"
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation()
-                                                                                    handleDeleteRecommendation(rec.id)
-                                                                                }}
-                                                                            >
-                                                                                <Trash2 className="h-4 w-4" />
-                                                                            </Button>
-                                                                        </>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                            <p className="text-muted-foreground mb-6 line-clamp-2 leading-relaxed">{rec.description}</p>
-
-                                                            <div className="space-y-4">
-                                                                <div>
-                                                                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Activities</h4>
-                                                                    <div className="flex flex-wrap gap-2">
-                                                                        {(Array.isArray(rec.activities) ? rec.activities : []).slice(0, 3).map((activity, i) => (
-                                                                            <Badge key={i} variant="outline" className="bg-secondary/30 border-border/50">
-                                                                                {activity}
-                                                                            </Badge>
-                                                                        ))}
-                                                                        {(Array.isArray(rec.activities) ? rec.activities : []).length > 3 && (
-                                                                            <Badge variant="outline" className="bg-secondary/30 border-border/50">+{(Array.isArray(rec.activities) ? rec.activities : []).length - 3}</Badge>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="mt-6 pt-6 border-t border-border/50 flex justify-end">
-                                                            <span className="text-sm font-medium text-primary group-hover:translate-x-1 transition-transform flex items-center">
-                                                                View Details <ArrowRight className="ml-1 w-4 h-4" />
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </Card>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {activeTab === 'voting' && (
-                            <div className="space-y-8 animate-fade-in-up">
-                                <Card className="border-border/50 shadow-lg overflow-hidden">
-                                    <div className="h-2 bg-gradient-to-r from-primary to-accent" />
-                                    <CardHeader>
-                                        <CardTitle className="font-heading text-2xl">Voting Session</CardTitle>
-                                        <CardDescription>
-                                            Rank your preferred destinations using Borda Count method.
-                                        </CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        {trip.status === 'voting' ? (
-                                            <div className="text-center py-12">
-                                                <div className="mb-8">
-                                                    <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                                                        <Vote className="w-8 h-8 text-primary" />
-                                                    </div>
-                                                    <h3 className="text-xl font-bold mb-2 text-foreground">Voting is Active!</h3>
-                                                    <p className="text-muted-foreground max-w-md mx-auto">
-                                                        Please cast your votes to help decide the destination. Every vote counts towards the final decision.
-                                                    </p>
-                                                </div>
-                                                <Button
-                                                    size="lg"
-                                                    className="w-full sm:w-auto shadow-lg hover:shadow-xl transition-all hover:-translate-y-1"
-                                                    onClick={() => router.push(`/trips/${tripId}/vote`)}
-                                                >
-                                                    Go to Voting Page
-                                                    <ArrowRight className="ml-2 h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        ) : trip.status === 'confirmed' ? (
-                                            <div className="text-center py-12">
-                                                <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-6" />
-                                                <h3 className="text-2xl font-bold mb-2 text-foreground">Destination Confirmed!</h3>
-                                                <p className="text-muted-foreground mb-8 text-lg">
-                                                    The group has decided on <strong className="text-primary">{trip.destination}</strong>.
-                                                </p>
-                                                <Button variant="outline" size="lg" onClick={() => router.push(`/trips/${tripId}/results`)}>
-                                                    View Results
-                                                </Button>
-                                            </div>
-                                        ) : (
-                                            <div className="text-center py-12 bg-secondary/10 rounded-xl">
-                                                <p className="text-muted-foreground mb-6">
-                                                    Voting has not started yet. Wait for the trip organizer to initiate the voting session.
-                                                </p>
-                                                {isOwner && recommendations.length > 0 && (
-                                                    <Button onClick={() => router.push(`/trips/${tripId}/vote`)} size="lg" className="shadow-lg">
-                                                        Start Voting
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Sidebar */}
-                    <div className="space-y-8">
-                        {/* Admin Controls */}
-                        {isOwner && (
-                            <Card className="border-border/50 shadow-md">
-                                <CardHeader>
-                                    <CardTitle className="text-lg font-heading">Admin Controls</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-6">
-                                    <div className="flex items-center justify-between">
-                                        <div className="space-y-0.5">
-                                            <Label htmlFor="member-suggestions" className="text-foreground">Allow Member Suggestions</Label>
-                                            <p className="text-xs text-muted-foreground">
-                                                Let members add custom recommendations
-                                            </p>
-                                        </div>
-                                        <Switch
-                                            id="member-suggestions"
-                                            checked={trip.allow_member_recommendations}
-                                            onCheckedChange={handleToggleMemberRecommendations}
-                                        />
-                                    </div>
-
-                                    <div className="flex items-center justify-between">
-                                        <div className="space-y-0.5">
-                                            <Label htmlFor="member-edits" className="text-foreground">Allow Member Edits</Label>
-                                            <p className="text-xs text-muted-foreground">
-                                                Let members edit itineraries
-                                            </p>
-                                        </div>
-                                        <Switch
-                                            id="member-edits"
-                                            checked={trip.allow_member_edits}
-                                            onCheckedChange={handleToggleMemberEdits}
-                                        />
-                                    </div>
-
-                                    <div className="pt-4 border-t border-border/50">
-                                        <Button
-                                            variant="destructive"
-                                            size="sm"
-                                            className="w-full justify-start"
-                                            onClick={() => generateRecommendations(true)}
-                                            disabled={isGeneratingRecs || recommendations.length === 0}
-                                        >
-                                            <Trash2 className="mr-2 h-4 w-4" />
-                                            Clear AI Recommendations
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        <Card className="border-border/50 shadow-md bg-gradient-to-br from-card to-secondary/20">
-                            <CardHeader>
-                                <CardTitle className="text-lg font-heading">Invite Friends</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex gap-2 mb-4">
-                                    <Input readOnly value={trip.invite_code || ''} className="bg-background/50" />
-                                    <Button size="icon" variant="outline" onClick={() => {
-                                        navigator.clipboard.writeText(trip.invite_code || '')
-                                        toast.success('Copied to clipboard')
-                                    }}>
-                                        <Copy className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                                <Button className="w-full shadow-md" variant="outline" onClick={() => setIsShareModalOpen(true)}>
-                                    <Share2 className="mr-2 h-4 w-4" />
-                                    Share Invite Link
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    </div>
-                </div>
-            </main>
-
-            <ShareTripModal
-                isOpen={isShareModalOpen}
-                onClose={() => setIsShareModalOpen(false)}
-                inviteCode={trip.invite_code || ''}
-                tripTitle={trip.title}
+        <div className="min-h-screen bg-[#09090b] text-zinc-200 font-body selection:bg-zinc-800 selection:text-zinc-100">
+            {/* Modals */}
+            <PreferencesModal
+                isOpen={isPreferencesModalOpen}
+                onClose={() => setIsPreferencesModalOpen(false)}
+                tripId={tripId}
+                currentPreferences={preferences}
+                onSuccess={fetchPreferences}
             />
-
+            {trip && (
+                <EditTripModal
+                    isOpen={isEditTripModalOpen}
+                    onClose={() => setIsEditTripModalOpen(false)}
+                    trip={trip}
+                    onSuccess={fetchTripDetails}
+                    currentUserId={user?.id}
+                    onRoleChange={handleRoleChange}
+                    onDeleteTrip={handleDeleteTrip}
+                />
+            )}
+            <GenerateRecommendationsModal
+                isOpen={isGenerateRecsModalOpen}
+                onClose={() => setIsGenerateRecsModalOpen(false)}
+                tripId={tripId}
+                onSuccess={fetchRecommendations}
+            />
             <CustomRecommendationModal
                 isOpen={isCustomRecModalOpen}
                 onClose={() => setIsCustomRecModalOpen(false)}
                 tripId={tripId}
-                onSuccess={() => {
-                    fetchRecommendations()
-                    toast.success('Recommendation added successfully')
-                }}
+                onSuccess={fetchRecommendations}
+            />
+            <TripDetailSheet
+                isOpen={isTripDetailSheetOpen}
+                onClose={() => setIsTripDetailSheetOpen(false)}
+                recommendation={selectedRecommendation}
+                currency={currency}
+                participants={trip?.participants}
             />
 
-            <EditRecommendationModal
-                isOpen={isEditRecModalOpen}
-                onClose={() => setIsEditRecModalOpen(false)}
-                recommendation={selectedRec}
-                tripId={tripId}
-                onSuccess={() => {
-                    fetchRecommendations()
-                    setIsEditRecModalOpen(false)
-                }}
-            />
+            {/* Winner Reveal Overlay */}
+            <AnimatePresence mode="wait">
+                {isImmersive && (
+                    <VotingResults trip={trip} onViewItinerary={handleViewItinerary} />
+                )}
+            </AnimatePresence>
 
-            <RecommendationDetailsModal
-                isOpen={isDetailsModalOpen}
-                onClose={() => setIsDetailsModalOpen(false)}
-                recommendation={viewingRec}
-                tripId={tripId}
-                userCurrency={currency}
-                userRole={userRole}
-                onUpdate={() => fetchRecommendations()}
-            />
+            {/* Hero Section - Cinematic */}
+            <div className="relative h-[50vh] min-h-[500px] w-full overflow-hidden">
+                <motion.div
+                    initial={{ scale: 1.1 }}
+                    animate={{ scale: 1 }}
+                    transition={{ duration: 1.5, ease: "easeOut" }}
+                    className="absolute inset-0"
+                >
+                    <img
+                        src={trip.image_url || (trip.destination ? `https://source.unsplash.com/1600x900/?${trip.destination},travel` : "https://source.unsplash.com/1600x900/?travel,vacation")}
+                        alt={trip.title}
+                        className="w-full h-full object-cover opacity-60 grayscale-[0.3]"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-[#09090b]/40 to-transparent" />
+                </motion.div>
+
+                <div className="absolute inset-0 flex flex-col justify-end p-8 md:p-12 max-w-7xl mx-auto w-full z-10">
+                    <div className="absolute top-8 left-8 right-8 flex justify-between items-start">
+                        <Link href="/dashboard" className="p-3 rounded-full bg-black/20 backdrop-blur-md border border-white/10 text-white hover:bg-black/40 transition-colors group">
+                            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+                        </Link>
+
+                        {isOwner && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="rounded-full bg-black/20 backdrop-blur-md border border-white/10 text-white hover:bg-black/40">
+                                        <MoreVertical className="w-5 h-5" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 text-zinc-200">
+                                    <DropdownMenuItem onClick={() => setIsEditTripModalOpen(true)} className="hover:bg-zinc-800 cursor-pointer">
+                                        <Edit className="w-4 h-4 mr-2" /> Edit Trip
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setIsGenerateRecsModalOpen(true)} className="hover:bg-zinc-800 cursor-pointer">
+                                        <Sparkles className="w-4 h-4 mr-2" /> Generate Recommendations
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator className="bg-zinc-800" />
+                                    <DropdownMenuItem className="text-red-400 hover:bg-red-900/20 cursor-pointer">
+                                        <Trash2 className="w-4 h-4 mr-2" /> Delete Trip
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
+                    </div>
+
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2, duration: 0.6 }}
+                    >
+                        <div className="flex items-center gap-3 mb-4">
+                            <Badge className="bg-white/10 backdrop-blur-md border-white/10 text-white hover:bg-white/20 px-3 py-1 uppercase tracking-widest text-[10px]">
+                                {trip.status} Phase
+                            </Badge>
+                            {trip.destination && (
+                                <div className="flex items-center gap-2 text-zinc-300 text-sm font-medium bg-black/30 backdrop-blur-md px-3 py-1 rounded-full border border-white/5">
+                                    <MapPin className="w-3 h-3" />
+                                    {trip.destination}
+                                </div>
+                            )}
+                        </div>
+                        <h1 className="text-5xl md:text-7xl font-heading text-white mb-6 tracking-tight leading-none">
+                            {trip.title}
+                        </h1>
+                        <div className="flex flex-wrap items-center gap-8 text-zinc-400 font-light">
+                            {trip.start_date && (
+                                <div className="flex items-center gap-2">
+                                    <Calendar className="w-4 h-4 text-zinc-500" />
+                                    <span>{formatDate(trip.start_date)} - {trip.end_date ? formatDate(trip.end_date) : 'TBD'}</span>
+                                </div>
+                            )}
+                            <div className="flex items-center gap-2">
+                                <Users className="w-4 h-4 text-zinc-500" />
+                                <span>{trip.participants.length} Travelers</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-zinc-500 font-medium">{formatCurrencyUtil(trip.budget_min, currency, false)} - {formatCurrencyUtil(trip.budget_max, currency, false)} {currency}</span>
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
+            </div>
+
+            {/* Control Bar - Sticky */}
+            {!isImmersive && (
+                <div className="sticky top-0 z-50 bg-[#09090b]/80 backdrop-blur-xl border-b border-white/5">
+                    <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between overflow-x-auto no-scrollbar">
+                        <div className="flex items-center gap-8 h-full min-w-max">
+                            {['overview', 'itinerary', 'voting', 'preferences'].map((tab) => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab as any)}
+                                    className={cn(
+                                        "h-full relative px-2 text-sm font-medium tracking-wide transition-colors uppercase",
+                                        activeTab === tab ? "text-white" : "text-zinc-500 hover:text-zinc-300"
+                                    )}
+                                >
+                                    {tab}
+                                    {activeTab === tab && (
+                                        <motion.div
+                                            layoutId="activeTabIndicator"
+                                            className="absolute bottom-0 left-0 right-0 h-[2px] bg-white"
+                                        />
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex items-center gap-4 ml-4">
+                            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white hidden md:flex">
+                                <Share2 className="w-4 h-4 mr-2" />
+                                Share
+                            </Button>
+                            {isOwner && (
+                                <Button size="sm" className="bg-zinc-100 text-zinc-950 hover:bg-white rounded-full px-6">
+                                    Invite
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <main className="max-w-7xl mx-auto px-6 py-8">
+                <AnimatePresence mode="wait">
+                    {activeTab === 'overview' && (
+                        <motion.div
+                            key="overview"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                            className="space-y-12"
+                        >
+                            {/* Participants Section */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="md:col-span-2 p-6 rounded-3xl bg-zinc-900/50 border border-white/5 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-lg font-heading text-zinc-300">Participants</h3>
+                                        <Button variant="link" className="text-zinc-500 hover:text-white" onClick={() => setIsEditTripModalOpen(true)}>
+                                            Manage
+                                        </Button>
+                                    </div>
+                                    <div className="flex flex-wrap gap-4">
+                                        {trip.participants.map((participant) => (
+                                            <div key={participant.id} className="flex items-center gap-3 bg-black/20 rounded-full pl-2 pr-4 py-2 border border-white/5">
+                                                <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-medium text-zinc-400">
+                                                    {generateInitials(participant.user_name)}
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm text-zinc-200">{participant.user_name}</span>
+                                                    <span className="text-[10px] text-zinc-500 uppercase tracking-wider">{participant.role}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="p-6 rounded-3xl bg-zinc-900/50 border border-white/5 space-y-4">
+                                    <h3 className="text-lg font-heading text-zinc-300">Quick Actions</h3>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 border-zinc-800 hover:bg-zinc-800 hover:text-white" onClick={() => setIsGenerateRecsModalOpen(true)}>
+                                            <Sparkles className="w-5 h-5" />
+                                            <span className="text-xs">Generate</span>
+                                        </Button>
+                                        <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 border-zinc-800 hover:bg-zinc-800 hover:text-white" onClick={() => setIsPreferencesModalOpen(true)}>
+                                            <Settings className="w-5 h-5" />
+                                            <span className="text-xs">Preferences</span>
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Recommendations Section */}
+                            <div className="space-y-6">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-2xl font-heading text-white">Recommendations</h2>
+                                    {isOwner && (
+                                        <Button onClick={() => setIsGenerateRecsModalOpen(true)} variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
+                                            <Sparkles className="w-4 h-4 mr-2" />
+                                            Generate
+                                        </Button>
+                                    )}
+                                </div>
+
+                                {recommendations.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {recommendations.map((rec) => (
+                                            <Card key={rec.id} className="bg-zinc-900/50 border-white/5 overflow-hidden hover:border-white/10 transition-colors group cursor-pointer" onClick={() => {
+                                                setSelectedRecommendation(rec)
+                                                setIsTripDetailSheetOpen(true)
+                                            }}>
+                                                <div className="h-48 relative overflow-hidden">
+                                                    <img src={rec.image_url || `https://source.unsplash.com/800x600/?${rec.destination_name}`} alt={rec.destination_name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                                                    <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-xs text-white font-medium">
+                                                        {formatCurrencyUtil(rec.estimated_cost, currency, false)} {currency}
+                                                    </div>
+                                                </div>
+                                                <CardContent className="p-4">
+                                                    <h3 className="font-heading text-lg text-white mb-1">{rec.destination_name}</h3>
+                                                    <p className="text-sm text-zinc-400 line-clamp-2">{rec.description}</p>
+                                                    <div className="mt-4 flex items-center gap-2 text-xs text-zinc-500">
+                                                        <MapPin className="w-3 h-3" />
+                                                        {rec.destination_name}
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-12 text-zinc-500">
+                                        <p className="mb-4">No recommendations yet.</p>
+                                        {isOwner && (
+                                            <Button onClick={() => setIsGenerateRecsModalOpen(true)}>
+                                                Generate Recommendations
+                                            </Button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {activeTab === 'voting' && (
+                        <motion.div
+                            key="voting"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                        >
+                            <VotingFlow
+                                recommendations={recommendations}
+                                onVoteSubmit={handleVoteSubmit}
+                                currency={currency}
+                                currentUserId={user?.id}
+                                userCostBreakdown={userCostBreakdown}
+                                participants={trip.participants}
+                                isOwner={isOwner}
+                                onForceComplete={handleForceComplete}
+                                onUpdatePreferences={() => setIsPreferencesModalOpen(true)}
+                                onRegenerate={() => setIsGenerateRecsModalOpen(true)}
+                                onResetVoting={handleResetVoting}
+                                onResetUserVote={handleResetUserVote}
+                            />
+                        </motion.div>
+                    )}
+
+                    {activeTab === 'preferences' && (
+                        <motion.div
+                            key="preferences"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="space-y-6"
+                        >
+                            {preferences ? (
+                                <div className="space-y-6">
+                                    <div className="p-6 rounded-3xl bg-zinc-900/50 border border-white/5 space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-lg font-heading text-zinc-300">Trip Vibe</h3>
+                                            {isOwner && (
+                                                <Button variant="ghost" size="sm" onClick={() => setIsPreferencesModalOpen(true)}>
+                                                    <Edit className="w-4 h-4" />
+                                                </Button>
+                                            )}
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {preferences.preference_data?.vibe?.map((v: string) => (
+                                                <Badge key={v} variant="secondary" className="bg-zinc-800 text-zinc-300">
+                                                    {v}
+                                                </Badge>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="p-6 rounded-3xl bg-zinc-900/50 border border-white/5 space-y-4">
+                                        <h3 className="text-lg font-heading text-zinc-300">Activities</h3>
+                                        <div className="flex flex-wrap gap-2">
+                                            {preferences.preference_data?.activities?.map((a: string) => (
+                                                <Badge key={a} variant="outline" className="border-zinc-700 text-zinc-400">
+                                                    {a}
+                                                </Badge>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center py-12 text-zinc-500">
+                                    <p>No preferences set for this trip yet.</p>
+                                    {isOwner && (
+                                        <Button onClick={() => setIsPreferencesModalOpen(true)} className="mt-4">
+                                            Set Preferences
+                                        </Button>
+                                    )}
+                                </div>
+                            )}
+                        </motion.div>
+                    )}
+
+                    {activeTab === 'itinerary' && (
+                        <motion.div
+                            key="itinerary"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                        >
+                            <ItineraryView trip={trip} />
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </main>
         </div>
     )
 }

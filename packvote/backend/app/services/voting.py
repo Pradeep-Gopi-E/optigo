@@ -2,6 +2,7 @@ from typing import List, Dict, Optional, Tuple, NamedTuple
 from sqlalchemy.orm import Session
 from ..models import Vote, Recommendation, User, Trip, Participant
 from ..models.participant import ParticipantStatus
+from .unsplash_service import unsplash_service
 import logging
 
 logger = logging.getLogger(__name__)
@@ -343,7 +344,7 @@ class VotingService:
             logger.error(f"Error checking voting completion: {str(e)}")
             return False
 
-    def finalize_voting(self, trip_id: str) -> Dict:
+    async def finalize_voting(self, trip_id: str) -> Dict:
         """
         Manually finalize voting, calculate results, and update trip status.
         """
@@ -357,7 +358,33 @@ class VotingService:
                 trip.status = "confirmed" # Using confirmed as "Decided"
                 if winner:
                     trip.destination = winner["destination_name"]
+                    
+                    # Get the winning recommendation to copy itinerary
+                    winning_rec = self.db.query(Recommendation).filter(
+                        Recommendation.id == winner["id"]
+                    ).first()
+                    
+                    if winning_rec and winning_rec.meta:
+                        logger.info(f"Winning recommendation meta keys: {winning_rec.meta.keys()}")
+                        itinerary_data = winning_rec.meta.get("itinerary")
+                        logger.info(f"Extracted itinerary data type: {type(itinerary_data)}")
+                        
+                        if itinerary_data:
+                            trip.itinerary = itinerary_data
+                            logger.info("Successfully set trip.itinerary")
+                        else:
+                            logger.warning("Itinerary data is empty or None in winning recommendation")
+
+                        # Fetch multiple images for the destination
+                        images = await unsplash_service.get_photos(winner["destination_name"], limit=5)
+                        trip.destination_images = images
+                        
+                        # Ensure main image is set
+                        if images:
+                            trip.image_url = images[0]
+
                 self.db.commit()
+                logger.info(f"Trip {trip_id} finalized. Status: {trip.status}, Destination: {trip.destination}")
             
             return results
 
@@ -384,10 +411,50 @@ class VotingService:
             if trip:
                 trip.status = "voting" # Or planning, but voting makes sense if we are revoting
                 trip.destination = None # Clear destination
+                trip.itinerary = None
+                trip.destination_images = None
+                trip.image_url = None
             
             self.db.commit()
             return True
         except Exception as e:
             logger.error(f"Error resetting votes: {str(e)}")
+            self.db.rollback()
+            return False
+
+    def reset_user_vote(self, trip_id: str, user_id: str) -> bool:
+        """
+        Reset votes for a specific user in a trip
+        """
+        try:
+            # Delete user's votes
+            self.db.query(Vote).filter(
+                Vote.trip_id == trip_id,
+                Vote.user_id == user_id
+            ).delete()
+
+            # Reset participant status
+            participant = self.db.query(Participant).filter(
+                Participant.trip_id == trip_id,
+                Participant.user_id == user_id
+            ).first()
+            
+            if participant:
+                participant.vote_status = "not_voted"
+
+            # Check if trip was confirmed, if so, reset to voting
+            trip = self.db.query(Trip).filter(Trip.id == trip_id).first()
+            if trip and trip.status.value == "confirmed":
+                trip.status = "voting"
+                trip.destination = None
+                trip.itinerary = None
+                trip.destination_images = None
+                trip.image_url = None
+                logger.info(f"Trip {trip_id} status reset to voting due to user {user_id} vote reset")
+
+            self.db.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error resetting user vote: {str(e)}")
             self.db.rollback()
             return False
